@@ -17,14 +17,7 @@ def all_records() -> list[dict]:
     return [json.loads(l) for l in PATH.read_text().splitlines() if l.strip()]
 
 
-def last_posture(location: str, mode: str, before: str | None = None) -> str | None:
-    """Most recent human-decided posture for this location/mode (optionally before a replay time)."""
-    best = None
-    for r in all_records():
-        if r["location"] != location or r["mode"] != mode:
-            continue
-        if before and r["as_of"] > before:
-            continue
-        if best is None or r["as_of"] >= best["as_of"]:
-            best = r
-    return best["final_posture"] if best else None
+def last_posture() -> str | None:
+    """Most recent human-decided posture (used to detect corrections and as the fallback when data is missing)."""
+    recs = all_records()
+    return recs[-1].get("posture") if recs else None

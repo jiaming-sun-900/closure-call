@@ -6,3 +6,4 @@ __pycache__/
 .env
 backend/data/records.jsonl
 .DS_Store
+backend/data/assessments/

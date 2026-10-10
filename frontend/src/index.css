@@ -1,9 +1,10 @@
 :root {
-  --bg: #f4f6f8; --card: #fff; --text: #1d2733; --muted: #66727f; --border: #dde3e9;
-  --brand: #1f4e79; --open: #2e7d32; --delayed: #c99a00; --early: #e07b00; --telework: #c4501b; --closed: #b3261e;
-  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --bg: #0b0f14; --panel: #121821; --panel2: #18202b; --line: #232d3a; --text: #e6edf3; --muted: #8b98a8;
+  --lv0: #3fb68b; --lv1: #d9c34a; --lv2: #f0a33a; --lv3: #f06b3a; --lv4: #f0444a;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font: 15px/1.45 var(--sans); color: var(--text); background: var(--bg);
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
-body { margin: 0; }
-button, select, textarea, input { font: inherit; }
+body { margin: 0; background: var(--bg); }
+button, select, textarea, input { font: inherit; color: inherit; }

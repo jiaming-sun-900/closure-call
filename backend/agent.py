@@ -1,260 +1,282 @@
-"""Assessment pipeline. A Strands agent drives the tools; if no model is configured (or it fails),
-the same tools run directly and a template writes the rationale — the flow never breaks.
+"""Assessment pipeline. A Strands agent (Anthropic model) drives the tools; if no key is configured or the model
+fails, the same tools run directly and templates write the text — the flow never breaks.
 
-The posture ALWAYS comes from the evaluate_rules tool output captured server-side, never from LLM text.
+The recommendation ALWAYS comes from the evaluate_rules tool output captured server-side, never from LLM text.
 """
 import json
 import os
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutTimeout
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+from pathlib import Path
+
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 
 import notify
 import records
 import rules
 from sources import gauge as gauge_src
-from sources import nws
+from sources import nws, outage as outage_src, roads as roads_src
 from sources.http import SourceError
 
-AGENT_TIMEOUT_S = float(os.getenv("AGENT_TIMEOUT_S", "45"))
+load_dotenv(Path(__file__).parent.parent / ".env")
+load_dotenv(Path(__file__).parent / ".env")
+AGENT_TIMEOUT_S = float(os.getenv("AGENT_TIMEOUT_S", "75"))
+DATA = Path(__file__).parent / "data"
 _pool = ThreadPoolExecutor(max_workers=4)
+STEPS = ("get_nws_alerts", "get_forecast", "get_river_gauge", "get_power_outages", "get_road_closures",
+         "get_facility_status", "get_roster", "evaluate_rules", "draft_notifications")
+
+
+def load_facility_status() -> dict:
+    return json.loads((DATA / "facility_status.json").read_text())
 
 
 class Ctx:
     """Per-assessment state shared by the tools."""
 
-    def __init__(self, facility: dict, location: str, mode: str, at: datetime, simulate: str | None,
-                 snapshot: str | None = None):
-        self.facility, self.location, self.mode, self.at, self.simulate = facility, location, mode, at, simulate
-        self.snapshot = snapshot
-        self.loc = facility["locations"][location]
-        self.alerts = self.forecast = self.gauge = self.rules = self.package = None
+    def __init__(self, facility: dict, at: datetime, simulate: str | None):
+        self.facility, self.at, self.simulate = facility, at, simulate
+        self.alerts = self.forecast = self.gauge = self.outage = self.roads = self.fstatus = None
+        self.rules = self.package = None
         self.status: dict[str, str] = {}
         self.trace: list[dict] = []
         self.done: set[str] = set()
 
-    def log(self, tool: str, t0: float, summary: str, ok: bool = True):
+    def log(self, tool, t0, summary, ok=True):
         self.trace.append({"tool": tool, "ms": int((time.time() - t0) * 1000), "summary": summary, "ok": ok})
         self.done.add(tool)
 
-    # ---- tool implementations (plain functions; wrapped for Strands below) ----
-    def get_nws_alerts(self) -> dict:
+    def _fetch(self, tool, key, fn, summarize):
         t0 = time.time()
+        if tool in self.done:
+            return getattr(self, key)
         try:
-            if self.simulate == "nws_down":
-                raise SourceError("simulated NWS outage")
-            if self.mode == "replay":
-                hist = nws.get_alert_history(self.loc["lat"], self.loc["lon"], _history_start(self.at), snapshot=self.snapshot)
-                self.alerts = nws.alerts_active_at(hist, self.at)
-            else:
-                self.alerts = nws.get_active_alerts(self.loc["lat"], self.loc["lon"])
-            self.status["nws"] = "ok"
-            self.log("get_nws_alerts", t0, f"{len(self.alerts)} alert(s): " + (", ".join(sorted({a['event'] for a in self.alerts})) or "none"))
-        except SourceError as e:
-            self.alerts, self.status["nws"] = None, "error"
-            self.log("get_nws_alerts", t0, f"FAILED: {e}", ok=False)
-        return {"status": self.status["nws"], "alerts": [
-            {k: a[k] for k in ("event", "severity", "certainty", "urgency", "onset", "expires", "area")} for a in (self.alerts or [])]}
+            if self.simulate == f"{key}_down" or (self.simulate == "nws_down" and key == "alerts"):
+                raise SourceError("simulated outage")
+            setattr(self, key, fn())
+            self.status[key] = "ok"
+            self.log(tool, t0, summarize(getattr(self, key)))
+        except (SourceError, KeyError, StopIteration, ValueError) as e:
+            setattr(self, key, None)
+            self.status[key] = "error"
+            self.log(tool, t0, f"FAILED: {e}"[:200], ok=False)
+        return getattr(self, key)
 
-    def get_forecast(self) -> dict:
-        t0 = time.time()
-        if self.mode == "replay":
-            self.status["forecast"] = "n/a"
-            self.log("get_forecast", t0, "Skipped — historical hourly forecasts are not archived by NWS API")
-            return {"status": "n/a"}
-        try:
-            self.forecast = nws.get_hourly_forecast(self.loc["lat"], self.loc["lon"])
-            self.status["forecast"] = "ok"
-            peak = max(self.forecast["periods"][:24], key=lambda p: p["wind_mph"])
-            self.log("get_forecast", t0, f"next 24h peak wind {peak['wind_mph']} mph")
-            return {"status": "ok", "peak_wind_mph_24h": peak["wind_mph"], "next_hours": self.forecast["periods"][:6]}
-        except (SourceError, KeyError) as e:
-            self.status["forecast"] = "error"
-            self.log("get_forecast", t0, f"FAILED: {e}", ok=False)
+    # ---- tools
+    def get_nws_alerts(self):
+        f = self.facility
+        a = self._fetch("get_nws_alerts", "alerts", lambda: nws.get_active_alerts(f["lat"], f["lon"], f.get("nws_county")),
+                        lambda v: f"{len(v)} alert(s): " + (", ".join(sorted({x['event'] for x in v})) or "none"))
+        return {"status": self.status["alerts"], "alerts": [
+            {k: x[k] for k in ("event", "severity", "certainty", "urgency", "onset", "ends", "expires", "headline")} for x in a or []]}
+
+    def get_forecast(self):
+        f = self.facility
+        fc = self._fetch("get_forecast", "forecast", lambda: nws.get_hourly_forecast(f["lat"], f["lon"], hours=96),
+                         lambda v: f"96 h hourly; peak wind {max(p['wind_mph'] for p in v['periods'])} mph")
+        if not fc:
             return {"status": "error"}
+        return {"status": "ok", "peak_wind_mph_96h": max(p["wind_mph"] for p in fc["periods"]), "next_hours": fc["periods"][:4]}
 
-    def get_river_gauge(self) -> dict:
+    def get_river_gauge(self):
+        g = self._fetch("get_river_gauge", "gauge", lambda: gauge_src.get_river_gauge(self.facility["gauge_lid"]),
+                        lambda v: f"{v['name']}: {v['stage_ft']} ft ({v['category']})")
+        return {"status": "error"} if not g else {k: g[k] for k in ("name", "stage_ft", "category", "flood_stages_ft", "observed_at")} | {"forecast": g["forecast"][:8]}
+
+    def get_power_outages(self):
+        o = self._fetch("get_power_outages", "outage", lambda: outage_src.get_parish_outage(self.facility["parish"]),
+                        lambda v: f"{v['customers_out']:,} / {v['customers_served']:,} Entergy customers out ({v['pct']}%)")
+        return o or {"status": "error"}
+
+    def get_road_closures(self):
+        f = self.facility
+        r = self._fetch("get_road_closures", "roads", lambda: roads_src.get_road_events(f["lat"], f["lon"]),
+                        lambda v: f"{v['closures']} closures within {v['radius_mi']} mi; {v['weather_related_closures']} weather-related")
+        return {"status": "error"} if not r else {k: r[k] for k in ("closures", "weather_related_closures", "radius_mi")}
+
+    def get_facility_status(self):
         t0 = time.time()
-        if self.mode == "replay":
-            self.status["gauge"] = "n/a"
-            self.log("get_river_gauge", t0, "Skipped in replay (live gauge would not reflect the past)")
-            return {"status": "n/a"}
-        try:
-            self.gauge = gauge_src.get_river_gauge(self.loc["gauge_lid"])
-            self.status["gauge"] = "ok"
-            self.log("get_river_gauge", t0, f"{self.gauge['name']}: {self.gauge['stage_ft']} ft ({self.gauge['category']})")
-            return {"status": "ok", **{k: self.gauge[k] for k in ("name", "stage_ft", "category", "flood_stages_ft", "observed_at")}}
-        except (SourceError, KeyError) as e:
-            self.status["gauge"] = "error"
-            self.log("get_river_gauge", t0, f"FAILED: {e}", ok=False)
-            return {"status": "error"}
+        self.fstatus = load_facility_status()
+        self.status["facility"] = "ok"
+        s = self.fstatus
+        self.log("get_facility_status", t0, f"power {s['power']}, water {s['water']}, roof {s['roof']}, roads {s['roads']}")
+        return s
 
-    def get_roster(self) -> dict:
+    def get_roster(self):
         t0 = time.time()
         roster = notify.load_roster()
-        self.log("get_roster", t0, f"{len(roster)} employees")
-        return {"employees": [{k: e[k] for k in ("name", "role", "work_location", "weekly_onsite_days", "today_status", "essential")} for e in roster]}
+        self.log("get_roster", t0, f"{len(roster)} employees: " + ", ".join(
+            f"{a} {sum(e['agency'] == a for e in roster)}" for a in self.facility["agencies"]))
+        return {"employees": [{k: e[k] for k in ("name", "agency", "role", "today_status", "work_location", "essential")} for e in roster]}
 
-    def evaluate_rules(self) -> dict:
+    def evaluate_rules(self):
         t0 = time.time()
-        if "get_nws_alerts" not in self.done:
-            self.get_nws_alerts()
-        as_of = self.at.isoformat() if self.mode == "replay" else None
-        last = records.last_posture(self.location, self.mode, before=as_of)
-        self.rules = rules.evaluate(alerts=self.alerts, forecast=self.forecast, gauge=self.gauge, facility=self.facility,
-                                    loc=self.loc, now=self.at, last_posture=last, data_status=self.status)
+        for step in STEPS[:6]:
+            if step not in self.done:
+                getattr(self, step)()
+        self.rules = rules.evaluate(alerts=self.alerts, forecast=self.forecast, gauge=self.gauge, outage=self.outage,
+                                    roads=self.roads, facility_status=self.fstatus, facility=self.facility, now=self.at,
+                                    data_status=self.status, last_posture=records.last_posture())
         r = self.rules
-        self.log("evaluate_rules", t0, f"{r['posture']} ({r['confidence']}) via {r['primary_trigger']['rule_id'] if r['primary_trigger'] else 'no trigger'}")
-        p = r["primary_trigger"]
-        return {"posture": r["posture"], "posture_label": r["posture_label"], "phase": r["phase"], "confidence": r["confidence"],
-                "confidence_reason": r["confidence_reason"], "operating_day": f"{r['window']['day']} {r['window']['date']}",
-                "deciding_rule": p and {k: p[k] for k in ("rule", "observed", "threshold", "exceed_by", "basis", "source", "at")},
-                "other_triggers": [t["rule"] + " → " + t["posture"] for t in r["triggers"][1:]],
-                "what_would_change": r["what_would_change"]}
+        self.log("evaluate_rules", t0, f"{r['recommended']} · level {r['level']} · {r['confidence']} · " +
+                 ", ".join(f"{a['code']} {a['posture']}" for a in r["agencies"]))
+        return {k: r[k] for k in ("headline", "recommended", "recommended_label", "recommended_why", "level", "level_label",
+                                  "confidence", "confidence_reason", "what_would_change")} | {
+            "operating_day": f"{r['window']['day']} {r['window']['date']}", "skipped_days": r["window"]["skipped"],
+            "agencies": [{k: a[k] for k in ("code", "label", "why", "field_work", "tolerance")} for a in r["agencies"]],
+            "signals": [{k: s[k] for k in ("title", "level", "observed", "threshold", "exceed_by", "basis", "source", "at")} for s in r["signals"]]}
 
-    def draft_notifications(self) -> dict:
+    def draft_notifications(self):
         t0 = time.time()
         if self.rules is None:
             self.evaluate_rules()
-        self.package = notify.build_package({"rules": self.rules}, self.facility, self.loc)
+        self.package = notify.build_package(self.rules, self.facility)
         self.log("draft_notifications", t0, self.package["summary"])
-        return {"summary": self.package["summary"],
-                "recipients": [f"{x['order']}. {x['employee']['name']} ({x['group']}, {x['urgency']})" for x in self.package["recipients"]],
-                "excluded": [f"{x['employee']['name']}: {x['reason']}" for x in self.package["excluded"]]}
+        return {"summary": self.package["summary"], "availability": self.package["availability"],
+                "roles": [{"key": _role_key(x), "to": x["to"], "subject": x["subject"], "draft": x["body"]} for x in self.package["roles"]]}
 
 
-def _history_start(at: datetime) -> str:
-    return (at - timedelta(days=4)).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _role_key(x):
+    return x["role"] + (f":{x['agency']}" if x.get("agency") else "")
 
 
-SYSTEM_PROMPT = """You are Closure Call, an assistant to a USDA facility manager deciding the facility's operating status during severe weather.
-Workflow — call the tools in this order: get_nws_alerts, get_forecast, get_river_gauge, get_roster, evaluate_rules, draft_notifications.
-Rules you must follow:
-- The operating posture is decided ONLY by evaluate_rules. Never change, soften, or second-guess it. Use its posture_label verbatim.
-- You do not make the decision; a human manager does. You are writing a recommendation.
-Final answer: ONE paragraph (max 110 words) the manager can paste into an email. Include: the recommended posture and operating day,
-the deciding alert/measurement with its source and time, the threshold crossed and by how much, the confidence and why,
-how many employees will be notified, and the one change that would alter the recommendation. Plain text, no markdown, no preamble."""
+# ---------------------------------------------------------------- agent
+class RoleDraft(BaseModel):
+    key: str = Field(description="Role key exactly as given by draft_notifications, e.g. 'facility', 'agency:FSA', 'executive'")
+    body: str = Field(description="Rewritten message body: short, plain, specific, ≤90 words")
+
+
+class Briefing(BaseModel):
+    rationale: str = Field(description="One paragraph (≤110 words) a manager can paste into an email")
+    drafts: list[RoleDraft]
+
+
+SYSTEM_PROMPT = """You are Closure Call, assisting the facility manager of the USDA Lake Charles Service Center (Calcasieu Parish, LA)
+in deciding the operating status during severe weather. A human makes the decision; you prepare the evidence and the words.
+
+Workflow:
+1. Call ALL data tools in a single turn (in parallel): get_nws_alerts, get_forecast, get_river_gauge, get_power_outages,
+   get_road_closures, get_facility_status, get_roster.
+2. Call evaluate_rules. Its recommendation and per-agency postures are AUTHORITATIVE — never change, soften or second-guess them.
+3. Call draft_notifications, then rewrite each role draft for its reader (facility manager = building, team managers = people,
+   program managers = can the work continue, executive = what's affected and who can work). Keep every fact and number; do not
+   add recipients or change any posture.
+
+Rationale paragraph: lead with the recommendation and operating day, then cite the specific data points (value, threshold crossed
+and by how much, source, time), confidence and why, how agencies differ, and the one change that would alter the recommendation.
+Plain text, no markdown."""
 
 
 def _model():
-    provider = os.getenv("MODEL_PROVIDER", "").lower()
-    model_id = os.getenv("MODEL_ID")
-    if provider == "bedrock":
-        from strands.models.bedrock import BedrockModel
-        return BedrockModel(model_id=model_id or "us.anthropic.claude-sonnet-4-20250514-v1:0",
-                            region_name=os.getenv("AWS_REGION", "us-west-2"), temperature=0.2)
-    if provider == "anthropic":
-        from strands.models.anthropic import AnthropicModel
-        return AnthropicModel(client_args={"api_key": os.environ["ANTHROPIC_API_KEY"]},
-                              model_id=model_id or "claude-sonnet-5-5", max_tokens=800)
-    if provider == "openai":  # OpenAI-compatible endpoints, e.g. Akamai inference
-        from strands.models.openai import OpenAIModel
-        return OpenAIModel(client_args={"api_key": os.environ.get("OPENAI_API_KEY", "none"),
-                                        "base_url": os.getenv("OPENAI_BASE_URL")},
-                           model_id=model_id, params={"temperature": 0.2, "max_tokens": 800})
-    return None
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        return None
+    from strands.models.anthropic import AnthropicModel
+    return AnthropicModel(client_args={"api_key": os.environ["ANTHROPIC_API_KEY"]},
+                          model_id=os.getenv("MODEL_ID", "claude-sonnet-5-5"), max_tokens=3000,
+                          params={"temperature": 0.2})
 
 
 def model_info() -> dict:
-    return {"provider": os.getenv("MODEL_PROVIDER") or None, "model_id": os.getenv("MODEL_ID") or None}
+    return {"provider": "anthropic" if os.getenv("ANTHROPIC_API_KEY") else None,
+            "model_id": os.getenv("MODEL_ID", "claude-sonnet-5-5") if os.getenv("ANTHROPIC_API_KEY") else None}
 
 
-def _run_agent(ctx: Ctx, model) -> str:
+def _run_agent(ctx: Ctx, model) -> Briefing:
     from strands import Agent, tool
 
-    @tool
-    def get_nws_alerts() -> str:
-        """Fetch National Weather Service alerts currently in effect at the facility location."""
-        return json.dumps(ctx.get_nws_alerts(), default=str)
+    def wrap(name, doc):
+        fn = getattr(ctx, name)
 
-    @tool
-    def get_forecast() -> str:
-        """Fetch the NWS hourly forecast (wind, precipitation) for the facility."""
-        return json.dumps(ctx.get_forecast(), default=str)
+        @tool(name=name, description=doc)
+        def _t() -> str:
+            return json.dumps(fn(), default=str)
+        return _t
 
-    @tool
-    def get_river_gauge() -> str:
-        """Fetch the nearest river gauge stage and its official flood stages."""
-        return json.dumps(ctx.get_river_gauge(), default=str)
-
-    @tool
-    def get_roster() -> str:
-        """Get the facility employee roster with schedules and status."""
-        return json.dumps(ctx.get_roster(), default=str)
-
-    @tool
-    def evaluate_rules() -> str:
-        """Run the deterministic closure rules on the collected data. Returns the authoritative posture."""
-        return json.dumps(ctx.evaluate_rules(), default=str)
-
-    @tool
-    def draft_notifications() -> str:
-        """Build the notification package: recipients in priority order, excluded employees with reasons, drafts."""
-        return json.dumps(ctx.draft_notifications(), default=str)
-
-    agent = Agent(model=model, system_prompt=SYSTEM_PROMPT, callback_handler=None,
-                  tools=[get_nws_alerts, get_forecast, get_river_gauge, get_roster, evaluate_rules, draft_notifications])
-    result = agent("Assess the facility now and write the recommendation paragraph.")
-    return str(result).strip()
+    tools = [wrap(n, d) for n, d in [
+        ("get_nws_alerts", "NWS alerts in effect at the facility (api.weather.gov)."),
+        ("get_forecast", "NWS hourly forecast (wind, precipitation) for the next 96 hours."),
+        ("get_river_gauge", "Nearest river gauge: stage, official flood stages, NWS stage forecast."),
+        ("get_power_outages", "Entergy Louisiana customers without power in the parish."),
+        ("get_road_closures", "Louisiana 511 road closures near the facility."),
+        ("get_facility_status", "Facility manager's manual building report: power, water, roof, roads."),
+        ("get_roster", "Employee roster with agency, role and status for the operating day."),
+        ("evaluate_rules", "Deterministic closure rules. Returns the AUTHORITATIVE recommendation and per-agency postures."),
+        ("draft_notifications", "Role-based notification drafts, employee list with notify/skip reasons, availability."),
+    ]]
+    agent = Agent(model=model, system_prompt=SYSTEM_PROMPT, tools=tools, callback_handler=None,
+                  structured_output_model=Briefing)
+    result = agent("Assess the Lake Charles Service Center for the next operating day and prepare the briefing.")
+    return result.structured_output
 
 
-def template_rationale(ctx: Ctx) -> str:
-    r, pkg = ctx.rules, ctx.package
+# ---------------------------------------------------------------- templates (fallback)
+def template_rationale(r: dict, pkg: dict) -> str:
     w = r["window"]
-    if r["needs_review"]:
-        return (f"Weather data from the National Weather Service could not be retrieved at {datetime.now(timezone.utc):%H:%M} UTC, "
-                f"so Closure Call cannot rule out hazards for {w['day']} {w['date']}. No OPEN recommendation is given; "
-                f"confidence is LOW. Please decide manually and re-run the assessment once data is restored.")
-    p = r["primary_trigger"]
-    if not p or r["posture"] == "OPEN" and r["phase"] == "none":
-        return (f"Recommendation for {w['day']} {w['date']}: {r['posture_label']}. No NWS alert in effect for the facility "
-                f"meets a closure threshold, and river and wind readings are below action levels (confidence {r['confidence']}). "
-                f"{r['what_would_change'][0]}")
-    return (f"Recommendation for {w['day']} {w['date']}: {r['posture_label']}. Deciding input: {p['observed']} "
-            f"(source: {p['source']}, retrieved {p['at']}). Threshold: {p['threshold']} — {p['exceed_by']}. "
-            f"Basis: {p['basis']}. Confidence {r['confidence']} ({r['confidence_reason']}). "
-            f"{pkg['summary']}. What would change this: {r['what_would_change'][0]}")
+    day = f"{w['day']} {w['date']}"
+    skipped = f" — {w['skipped'][0].split(': ')[1].replace(' (federal holiday)', '')} skipped" if w["skipped"] else ""
+    if r["recommended"] is None:
+        return (f"NWS weather data could not be retrieved, so hazards for {day} cannot be ruled out. Closure Call will not "
+                f"recommend Open; confidence is LOW. Decide manually and re-run when data returns.")
+    ag = "; ".join(f"{a['code']}: {a['label']}" + (f", field work {a['field_work']}" if a["field_work"] else "") for a in r["agencies"])
+    if not r["deciding"]:
+        return (f"Recommendation for {day}{skipped}: {r['recommended_label']}. No input crossed a threshold — NWS alerts, river stage, "
+                f"Entergy outages and roads are all below action levels (confidence {r['confidence']}). Agencies: {ag}.")
+    s = r["deciding"][0]
+    return (f"Recommendation for {day}{skipped}: building {r['recommended_label']}. Driver: {s['title']} — {s['observed']}; "
+            f"threshold {s['threshold']}, exceeded by {s['exceed_by']} ({s['source']}, {s['at']}). Hazard level {r['level']}/4 "
+            f"({r['level_label']}), confidence {r['confidence']} ({r['confidence_reason']}). Agencies differ by risk tolerance — {ag}. "
+            f"Availability {pkg['availability']['day']}: {pkg['availability']['total']['on_site']} on site, "
+            f"{pkg['availability']['total']['telework']} telework, {pkg['availability']['total']['unavailable']} unavailable. "
+            f"What would change this: {r['what_would_change'][0] if r['what_would_change'] else 'a new Warning for the parish'}")
 
 
-def assess(facility: dict, location: str, mode: str = "live", at: datetime | None = None,
-           simulate: str | None = None, use_agent: bool = True, snapshot: str | None = None) -> dict:
+def assess(facility: dict, at: datetime | None = None, simulate: str | None = None, use_agent: bool = True) -> dict:
     at = at or datetime.now(timezone.utc)
-    ctx = Ctx(facility, location, mode, at, simulate, snapshot)
+    ctx = Ctx(facility, at, simulate)
     model = _model() if use_agent else None
-    rationale_by, agent_error = "template", None
-    text = None
+    briefing, agent_error, by = None, None, "template"
+    t0 = time.time()
     if model is not None:
         fut = _pool.submit(_run_agent, ctx, model)
         try:
-            text = fut.result(timeout=AGENT_TIMEOUT_S)
-            rationale_by = f"agent:{os.getenv('MODEL_PROVIDER')}/{os.getenv('MODEL_ID') or 'default'}"
+            briefing = fut.result(timeout=AGENT_TIMEOUT_S)
+            by = f"Strands agent · {model_info()['model_id']}"
         except FutTimeout:
-            agent_error = f"Agent timed out after {AGENT_TIMEOUT_S:.0f}s"
-        except Exception as e:  # model/credential errors must not break the demo
-            agent_error = f"Agent error: {type(e).__name__}: {e}"[:300]
-    # Make sure every step ran even if the agent skipped one (or no agent at all)
-    for step in ("get_nws_alerts", "get_forecast", "get_river_gauge", "get_roster", "evaluate_rules", "draft_notifications"):
+            agent_error = f"Agent timed out after {AGENT_TIMEOUT_S:.0f}s — template used"
+        except Exception as e:
+            agent_error = f"Agent error ({type(e).__name__}: {e})"[:300]
+    for step in STEPS:
         if step not in ctx.done:
             getattr(ctx, step)()
-    if not text:
-        text, rationale_by = template_rationale(ctx), "template"
-
+    pkg, r = ctx.package, ctx.rules
+    if briefing:
+        drafts = {d.key: d.body for d in briefing.drafts}
+        for role in pkg["roles"]:
+            role["template_body"] = role["body"]
+            role["body"] = drafts.get(_role_key(role), role["body"])
+            role["written_by"] = "agent" if _role_key(role) in drafts else "template"
+        rationale = briefing.rationale
+    else:
+        rationale = template_rationale(r, pkg)
+        for role in pkg["roles"]:
+            role["written_by"] = "template"
     return {
         "id": uuid.uuid4().hex[:10],
         "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "as_of": at.astimezone(timezone.utc).isoformat(timespec="seconds"),
-        "mode": mode,
+        "elapsed_s": round(time.time() - t0, 1),
         "simulate": simulate,
-        "location": location,
-        "location_label": ctx.loc["label"],
-        "inputs": {"alerts": ctx.alerts, "forecast": ctx.forecast, "gauge": ctx.gauge},
+        "facility": {k: facility[k] for k in ("name", "address", "parish", "lat", "lon", "facility_source", "hours")},
+        "inputs": {"alerts": ctx.alerts, "forecast": ctx.forecast, "gauge": ctx.gauge, "outage": ctx.outage,
+                   "roads": ctx.roads, "facility_status": ctx.fstatus},
         "data_status": ctx.status,
-        "rules": ctx.rules,
-        "notifications": ctx.package,
-        "rationale": text,
-        "rationale_by": rationale_by,
+        "rules": r,
+        "notifications": pkg,
+        "rationale": rationale,
+        "rationale_by": by,
         "agent_error": agent_error,
         "trace": ctx.trace,
     }

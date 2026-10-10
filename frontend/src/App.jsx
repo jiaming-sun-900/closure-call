@@ -2,484 +2,510 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api'
 import './App.css'
 
-const POSTURES = ['OPEN', 'DELAYED_ARRIVAL', 'EARLY_DEPARTURE', 'UNSCHEDULED_TELEWORK', 'CLOSED']
-const POSTURE_LABEL = {
-  OPEN: 'Open',
-  DELAYED_ARRIVAL: 'Delayed Arrival',
-  EARLY_DEPARTURE: 'Early Departure',
-  UNSCHEDULED_TELEWORK: 'Unscheduled Leave / Telework',
-  CLOSED: 'Closed',
-}
-const PHASE_LABEL = {
-  none: 'No action needed',
-  advance: 'Advance notice',
-  official: 'Official notice',
-  correction: 'Correction',
-  shelter: 'Shelter now',
-  review: 'Manual review',
-}
-const GROUP_LABEL = { field: 'Field crew', commuters: 'Commuters', in_building: 'In building' }
+const LEVEL_NAMES = ['None', 'Watch', 'Elevated', 'Severe', 'Extreme']
+const POSTURE_SEV = { OPEN: 0, DELAYED_ARRIVAL: 1, EARLY_DEPARTURE: 2, UNSCHEDULED_TELEWORK: 2, CLOSED_TELEWORK: 3, CLOSED: 4 }
+const QS = new URLSearchParams(window.location.search)
 
-const fmtTime = (iso, tz) =>
-  iso
-    ? new Date(iso).toLocaleString('en-US', {
-        timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
-      })
-    : '—'
-
-const QS = new URLSearchParams(window.location.search) // deep links: ?mode=replay&at=...&tab=notify
+const fmt = (iso, opts = {}) =>
+  iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', hour: 'numeric', minute: '2-digit', ...opts }) : '—'
+const ago = (iso) => {
+  if (!iso) return '—'
+  const m = Math.round((Date.now() - Date.parse(iso)) / 60000)
+  return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : fmt(iso)
+}
+const lv = (n) => `lv${Math.max(0, Math.min(4, n ?? 0))}`
 
 export default function App() {
+  const [view, setView] = useState(QS.get('view') || 'dash')
   const [facility, setFacility] = useState(null)
-  const [mode, setMode] = useState(QS.get('mode') === 'replay' ? 'replay' : 'live')
-  const [replayAt, setReplayAt] = useState(QS.get('at'))
-  const [assessment, setAssessment] = useState(null)
+  const [a, setA] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [tab, setTab] = useState(QS.get('tab') || 'overview')
-  const [records, setRecords] = useState([])
   const [simulate, setSimulate] = useState(null)
+  const [chosen, setChosen] = useState(null)
+  const decisionRef = useRef(null)
   const reqId = useRef(0)
 
-  const replay = facility?.replays?.isaias
-  const locKey = mode === 'replay' ? replay?.location : facility?.current_location
-  const loc = facility?.locations?.[locKey]
-  const tz = loc?.timezone
-
-  const loadRecords = useCallback(() => api.records().then(setRecords).catch(() => {}), [])
-
-  const runAssess = useCallback(async (opts = {}) => {
+  const run = useCallback(async (sim = simulate) => {
     const id = ++reqId.current
     setLoading(true)
     setError(null)
     try {
-      const body = { mode: opts.mode ?? mode, simulate: opts.simulate !== undefined ? opts.simulate : simulate }
-      if (body.mode === 'replay') {
-        body.replay = 'isaias'
-        body.at = opts.at ?? replayAt
-      }
-      const a = await api.assess(body)
-      if (id === reqId.current) setAssessment(a)
+      const res = await api.assess({ simulate: sim })
+      if (id === reqId.current) { setA(res); setChosen(res.rules.recommended) }
     } catch (e) {
       if (id === reqId.current) setError(e.message)
     } finally {
       if (id === reqId.current) setLoading(false)
     }
-  }, [mode, replayAt, simulate])
+  }, [simulate])
 
   useEffect(() => {
-    api.facility().then((f) => {
-      setFacility(f)
-      setReplayAt((cur) => cur || f.replays.isaias.moments[0].at)
-    }).catch((e) => setError('Backend unreachable: ' + e.message))
-    loadRecords()
-  }, [loadRecords])
-
-  useEffect(() => {
-    if (facility) runAssess()
+    api.facility().then(setFacility).catch((e) => setError('Backend unreachable — ' + e.message))
+    run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [facility?.current_location, mode, simulate])
+  }, [])
 
-  const changeLocation = async (key) => {
-    const f = await api.setLocation(key)
-    setFacility((prev) => ({ ...prev, ...f }))
-  }
-
-  if (!facility) {
-    return <div className="boot">{error || 'Loading Closure Call…'}</div>
+  const pick = (key) => {
+    setChosen(key)
+    decisionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="top">
         <div className="brand">
-          <span className="logo">⛈</span>
+          <div className="mark">CC</div>
           <div>
-            <div className="title">Closure Call</div>
-            <div className="sub">{facility.name} · {loc?.label}</div>
+            <div className="name">Closure Call</div>
+            <div className="sub">{facility?.name || 'USDA Service Center'} · {facility?.parish}</div>
           </div>
         </div>
-        <div className="controls">
-          <div className="seg">
-            <button className={mode === 'live' ? 'on' : ''} onClick={() => setMode('live')}>● Live</button>
-            <button className={mode === 'replay' ? 'on' : ''} onClick={() => setMode('replay')}>⏪ Replay: Isaias</button>
-          </div>
-          {mode === 'live' && (
-            <select value={facility.current_location} onChange={(e) => changeLocation(e.target.value)}>
-              {Object.entries(facility.locations).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-          )}
-          <select value={simulate || ''} onChange={(e) => setSimulate(e.target.value || null)} title="Test scenarios">
-            <option value="">Real data</option>
+        <nav className="views">
+          <button className={view === 'dash' ? 'on' : ''} onClick={() => setView('dash')}>Dashboard</button>
+          <button className={view === 'records' ? 'on' : ''} onClick={() => setView('records')}>Decision record</button>
+        </nav>
+        <div className="actions">
+          <select value={simulate || ''} onChange={(e) => { const v = e.target.value || null; setSimulate(v); run(v) }} title="Test scenarios">
+            <option value="">Live data</option>
             <option value="nws_down">Test: NWS outage</option>
           </select>
-          <button className="primary" onClick={() => runAssess()} disabled={loading}>{loading ? 'Assessing…' : 'Re-assess'}</button>
+          <button className="btn" onClick={() => run()} disabled={loading}>{loading ? 'Assessing…' : '↻ Re-assess'}</button>
         </div>
       </header>
 
-      {mode === 'replay' && replay && (
-        <ReplayBar replay={replay} at={replayAt} tz={tz} loading={loading}
-          onChange={setReplayAt} onCommit={(at) => runAssess({ at })} />
+      {error && <div className="err">⚠ {error}</div>}
+
+      {view === 'records' ? <Records /> : !a ? (
+        <div className="boot"><div className="spinner" />Pulling NWS, river, Entergy and LA 511 data…<br /><small>The agent is gathering evidence</small></div>
+      ) : (
+        <main className={loading ? 'busy' : ''}>
+          <Bluf a={a} chosen={chosen} onPick={pick} />
+          <Why a={a} />
+          <DataCards a={a} onStatusSaved={() => run()} />
+          <Agencies a={a} facility={facility} />
+          <Notifications a={a} />
+          <div ref={decisionRef}><Decision a={a} chosen={chosen} setChosen={setChosen} /></div>
+          <Trace a={a} />
+        </main>
       )}
-
-      {error && <div className="banner error">⚠ {error}</div>}
-
-      <nav className="tabs">
-        {[['overview', 'Recommendation'], ['notify', 'Notifications'], ['records', 'Decision Record']].map(([k, l]) => (
-          <button key={k} className={tab === k ? 'on' : ''} onClick={() => { setTab(k); if (k === 'records') loadRecords() }}>{l}</button>
-        ))}
-      </nav>
-
-      <main className={loading ? 'dim' : ''}>
-        {!assessment && <div className="empty">Pulling live data from the National Weather Service…</div>}
-        {assessment && tab === 'overview' && (
-          <Overview a={assessment} tz={tz} onDecided={() => { loadRecords(); runAssess() }} />
-        )}
-        {assessment && tab === 'notify' && <Notifications a={assessment} />}
-        {tab === 'records' && <Records records={records} />}
-      </main>
-      <footer className="foot">
-        Data: NWS api.weather.gov · NOAA NWPS river gauges · Rules: deterministic (NWS / OPM thresholds) ·
-        Agent: Strands Agents SDK{facility.model?.provider ? ` (${facility.model.provider})` : ' (template mode)'} · A human makes the final call.
-      </footer>
     </div>
   )
 }
 
-function ReplayBar({ replay, at, tz, loading, onChange, onCommit }) {
-  const t0 = Date.parse(replay.start), t1 = Date.parse(replay.end)
-  const cur = Date.parse(at)
-  const step = 30 * 60 * 1000
-  const toIso = (ms) => new Date(ms).toISOString().replace('.000', '')
+/* ---------------- BLUF ---------------- */
+function Bluf({ a, chosen, onPick }) {
+  const r = a.rules
+  const [copied, setCopied] = useState(false)
   return (
-    <div className="replay">
-      <div className="replay-head">
-        <strong>{replay.label}</strong>
-        <span className="replay-time">{fmtTime(at, tz)}{loading ? ' · evaluating…' : ''}</span>
+    <section className={`bluf ${lv(r.level)}`}>
+      <div className="bluf-top">
+        <div>
+          <div className={`headline ${r.action_needed ? 'act' : ''}`}>{r.headline}</div>
+          <div className="bluf-sum">
+            Building {r.recommended_label.toLowerCase()}
+            {r.agencies.map((g) => <span key={g.code}> · <b>{g.code}</b> {g.label.toLowerCase()}{g.field_work && g.field_work !== 'normal' ? `, field work ${g.field_work}` : ''}</span>)}
+          </div>
+          <div className="bluf-meta">
+            <span className={`pill ${lv(r.level)}`}>Hazard {r.level}/4 · {r.level_label}</span>
+            <span className="pill">Confidence {r.confidence}</span>
+            {r.window.skipped.map((s) => <span key={s} className="pill ghost">{s.split(': ')[0].split(' ')[0]} skipped · {s.split(': ')[1].replace(' (federal holiday)', '')}</span>)}
+            <span className="muted">as of {fmt(a.as_of)} · {a.elapsed_s}s</span>
+          </div>
+        </div>
+        <div className="rec">
+          <div className="rec-k">Recommended — building</div>
+          <div className={`rec-v ${lv(POSTURE_SEV[r.recommended] ?? 4)}`}>{r.recommended_label}</div>
+          <div className="rec-why">{r.recommended_why}</div>
+        </div>
       </div>
-      <input type="range" min={t0} max={t1} step={step} value={cur}
-        onChange={(e) => onChange(toIso(+e.target.value))}
-        onMouseUp={(e) => onCommit(toIso(+e.target.value))}
-        onTouchEnd={(e) => onCommit(toIso(+e.target.value))}
-        onKeyUp={(e) => onCommit(toIso(+e.target.value))} />
-      <div className="moments">
-        {replay.moments.map((m) => (
-          <button key={m.at} className={m.at === at ? 'on' : ''} onClick={() => { onChange(m.at); onCommit(m.at) }}>
-            {m.label}
+
+      <div className="options">
+        {r.options.map((o) => (
+          <button key={o.key} onClick={() => onPick(o.key)}
+            className={`opt ${o.recommended ? 'recd ' + lv(POSTURE_SEV[o.key]) : ''} ${chosen === o.key ? 'chosen' : ''}`}>
+            {o.recommended && <span className="star">Recommended</span>}
+            {o.label}
+          </button>
+        ))}
+        <button className={`opt ${chosen === 'CUSTOM' ? 'chosen' : ''}`} onClick={() => onPick('CUSTOM')}>Custom…</button>
+      </div>
+
+      <div className="rationale">
+        <p>{a.rationale}</p>
+        <div className="rationale-foot">
+          <span className="muted">{a.rationale_by === 'template' ? 'Template text (no model key)' : `Written by ${a.rationale_by}`} · level decided by rules, not AI</span>
+          <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(a.rationale); setCopied(true); setTimeout(() => setCopied(false), 1500) }}>
+            {copied ? '✓ Copied' : 'Copy for email'}
+          </button>
+        </div>
+        {a.agent_error && <div className="muted small">{a.agent_error}</div>}
+      </div>
+    </section>
+  )
+}
+
+/* ---------------- WHY ---------------- */
+function Why({ a }) {
+  const r = a.rules
+  return (
+    <section className="panel">
+      <h2>Why <span>thresholds crossed</span></h2>
+      {r.signals.length === 0 ? <p className="muted">Nothing crossed a threshold.</p> : (
+        <div className="why-list">
+          {r.signals.map((s, i) => (
+            <div key={i} className={`why ${lv(s.level)}`}>
+              <div className="why-lv">{s.level}</div>
+              <div className="why-main">
+                <div className="why-title">{s.title}</div>
+                <div className="why-obs">{s.observed}</div>
+                <div className="why-grid">
+                  <div><span>Threshold</span>{s.threshold}</div>
+                  <div><span>Exceeded by</span>{s.exceed_by}</div>
+                  <div><span>Basis</span>{s.basis}</div>
+                  <div><span>Source</span>{s.source} · {ago(s.at)}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="change">
+        <div className="change-k">What would change this</div>
+        <ul>{r.what_would_change.map((w, i) => <li key={i}>{w}</li>)}</ul>
+      </div>
+    </section>
+  )
+}
+
+/* ---------------- DATA CARDS ---------------- */
+function DataCards({ a, onStatusSaved }) {
+  const { alerts, gauge, forecast, outage, roads, facility_status: fs } = a.inputs
+  const r = a.rules
+  const sigLevel = (kind) => Math.max(0, ...r.signals.filter((s) => s.kind === kind).map((s) => s.level))
+  const st = a.data_status
+  const relevant = (alerts || []).filter((x) => !['Tropical Cyclone Local Statement'].includes(x.event))
+  const w0 = Date.parse(r.window.start) - 2 * 3600e3, w1 = Date.parse(r.window.end)
+  const workWind = forecast?.periods?.filter((p) => Date.parse(p.start) >= w0 && Date.parse(p.start) < w1) || []
+  const peak = workWind.length ? workWind.reduce((m, p) => (p.wind_mph > m.wind_mph ? p : m)) : null
+  const fc = gauge?.forecast?.filter((p) => Date.parse(p.t) <= Date.parse(r.window.start)).pop()
+  return (
+    <section className="cards">
+      <Card title="NWS alerts" level={sigLevel('nws')} status={st.alerts} source="api.weather.gov" at={alerts?.[0]?.fetched_at}>
+        {alerts == null ? <Missing /> : relevant.length === 0 ? <Big v="0" u="active" /> : (
+          <>
+            <Big v={relevant.length} u={relevant.length === 1 ? 'alert' : 'alerts'} />
+            {relevant.slice(0, 3).map((x) => (
+              <div key={x.id} className="line"><b>{x.event}</b> until {fmt(x.ends || x.expires)}<div className="muted small">{x.where || x.area}</div></div>
+            ))}
+          </>
+        )}
+      </Card>
+      <Card title="River stage" level={sigLevel('gauge')} status={st.gauge} source="NOAA NWPS" at={gauge?.fetched_at}>
+        {!gauge ? <Missing /> : (
+          <>
+            <Big v={gauge.stage_ft?.toFixed(1)} u="ft" />
+            <Meter value={gauge.stage_ft} stages={gauge.flood_stages_ft} />
+            <div className="line small">{gauge.name}</div>
+            <div className="line small">Minor flood {gauge.flood_stages_ft.minor} ft · {fc ? `forecast ${fc.ft} ft by ${r.window.day} 8 AM` : 'no forecast'}</div>
+          </>
+        )}
+      </Card>
+      <Card title={`Wind · ${r.window.day} work day`} level={sigLevel('wind')} status={st.forecast} source="NWS hourly forecast" at={forecast?.fetched_at}>
+        {!forecast ? <Missing /> : peak ? (
+          <>
+            <Big v={peak.wind_mph} u="mph peak" />
+            <div className="line small">{fmt(peak.start)} · {peak.short}</div>
+            <div className="line small muted">Wind Advisory ≥31 · High Wind ≥40 mph</div>
+          </>
+        ) : <div className="muted">Forecast does not reach {r.window.day} yet</div>}
+      </Card>
+      <Card title="Power outages" level={sigLevel('power')} status={st.outage} source="Entergy Louisiana" at={outage?.fetched_at}>
+        {!outage ? <Missing /> : (
+          <>
+            <Big v={outage.customers_out.toLocaleString()} u="customers out" />
+            <div className="line small">{outage.pct}% of {outage.customers_served.toLocaleString()} in {outage.parish}</div>
+            <div className="line small muted">Statewide {outage.state_out.toLocaleString()} out · utility updated {ago(outage.updated_at)}</div>
+          </>
+        )}
+      </Card>
+      <Card title="Roads" level={sigLevel('roads')} status={st.roads} source="LA 511" at={roads?.fetched_at}>
+        {!roads ? <Missing /> : (
+          <>
+            <Big v={roads.weather_related_closures} u="weather closures" />
+            <div className="line small">{roads.closures} closures within {roads.radius_mi} mi (construction/maintenance)</div>
+            {roads.events?.filter((e) => e.full_closure).slice(0, 2).map((e, i) => <div key={i} className="line small muted">{e.roadway}: {e.description.slice(0, 70)}…</div>)}
+          </>
+        )}
+      </Card>
+      <FacilityCard fs={fs} level={sigLevel('facility')} onSaved={onStatusSaved} />
+    </section>
+  )
+}
+
+function Card({ title, level, status, source, at, children }) {
+  return (
+    <div className={`card ${lv(level)}`}>
+      <div className="card-h">
+        <span>{title}</span>
+        {level > 0 && <span className={`dot ${lv(level)}`}>{LEVEL_NAMES[level]}</span>}
+      </div>
+      <div className="card-b">{children}</div>
+      <div className="card-f">{status === 'error' ? '⚠ source unavailable' : `${source} · ${ago(at)}`}</div>
+    </div>
+  )
+}
+const Big = ({ v, u }) => <div className="big"><b>{v}</b><span>{u}</span></div>
+const Missing = () => <div className="missing">Data unavailable — treated as unknown, never as safe</div>
+
+function Meter({ value, stages }) {
+  const max = (stages.major || value * 1.5) * 1.1
+  const pct = (x) => `${Math.min(100, (x / max) * 100)}%`
+  return (
+    <div className="meter">
+      <div className="meter-fill" style={{ width: pct(value) }} />
+      {Object.entries(stages).map(([k, v]) => <div key={k} className={`tick t-${k}`} style={{ left: pct(v) }} title={`${k} ${v} ft`} />)}
+    </div>
+  )
+}
+
+function FacilityCard({ fs, level, onSaved }) {
+  const [s, setS] = useState(fs)
+  const [saving, setSaving] = useState(false)
+  useEffect(() => setS(fs), [fs])
+  if (!s) return null
+  const opts = { power: ['ok', 'generator', 'out'], water: ['ok', 'out'], roof: ['ok', 'damaged'], roads: ['open', 'limited', 'impassable'] }
+  const dirty = JSON.stringify(s) !== JSON.stringify(fs)
+  const save = async () => { setSaving(true); await api.setStatus(s); setSaving(false); onSaved() }
+  return (
+    <div className={`card ${lv(level)}`}>
+      <div className="card-h"><span>Facility status · manual</span>{level > 0 && <span className={`dot ${lv(level)}`}>{LEVEL_NAMES[level]}</span>}</div>
+      <div className="card-b fac">
+        {Object.entries(opts).map(([k, vals]) => (
+          <div key={k} className="fac-row">
+            <span>{k}</span>
+            <div className="seg">
+              {vals.map((v) => <button key={v} className={s[k] === v ? `on ${v === 'ok' || v === 'open' ? '' : 'bad'}` : ''} onClick={() => setS({ ...s, [k]: v })}>{v}</button>)}
+            </div>
+          </div>
+        ))}
+        {dirty && <button className="btn sm primary" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save & re-assess'}</button>}
+      </div>
+      <div className="card-f">Reported by {fs.updated_by} · {fs.updated_at ? ago(fs.updated_at) : 'not yet updated'}</div>
+    </div>
+  )
+}
+
+/* ---------------- AGENCIES ---------------- */
+function Agencies({ a, facility }) {
+  const r = a.rules
+  return (
+    <section className="panel">
+      <h2>By agency <span>same data · different risk tolerance</span></h2>
+      <div className="agencies">
+        {r.agencies.map((g) => (
+          <div key={g.code} className={`agency ${lv(POSTURE_SEV[g.posture])}`}>
+            <div className="ag-h">
+              <div className="ag-code">{g.code}</div>
+              <span className="pill ghost">{g.tolerance} tolerance</span>
+            </div>
+            <div className="ag-name">{g.name}</div>
+            <div className={`ag-posture ${lv(POSTURE_SEV[g.posture])}`}>{g.label}</div>
+            {g.field_work && <div className={`ag-field ${g.field_work}`}>Field work: <b>{g.field_work}</b></div>}
+            <LevelScale level={r.level} th={g.thresholds} />
+            <div className="small muted">{g.tolerance_note}</div>
+            <div className="small">{g.why}</div>
+          </div>
+        ))}
+      </div>
+      {facility?.not_in_building && Object.entries(facility.not_in_building).map(([k, v]) => <div key={k} className="small muted note">{v}</div>)}
+    </section>
+  )
+}
+
+function LevelScale({ level, th }) {
+  return (
+    <div className="scale">
+      {[0, 1, 2, 3, 4].map((n) => {
+        const tag = n === th.close ? 'close' : n === th.adjust ? 'adjust' : n === th.field_suspend ? 'field stop' : ''
+        return (
+          <div key={n} className={`sc ${lv(n)} ${n <= level ? 'filled' : ''} ${n === level ? 'cur' : ''}`}>
+            <span>{n}</span>{tag && <em>{tag}</em>}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ---------------- NOTIFICATIONS ---------------- */
+function Notifications({ a }) {
+  const pkg = a.notifications
+  const [tab, setTab] = useState(0)
+  const role = pkg.roles[tab]
+  const groups = ['onsite', 'teleworking', 'on_detail', 'leave']
+  const glabel = { onsite: 'Scheduled on site', teleworking: 'Teleworking', on_detail: 'On detail', leave: 'On leave' }
+  const t = pkg.availability.total
+  return (
+    <section className="panel">
+      <h2>Notifications <span>by role · drafts only, nothing is sent</span></h2>
+      <div className="avail">
+        <div><b>{t.on_site}</b><span>on site {pkg.availability.day.split(' ')[0]}</span></div>
+        <div><b>{t.telework}</b><span>telework</span></div>
+        <div><b>{t.unavailable}</b><span>unavailable</span></div>
+        <div><b>{pkg.employees.filter((e) => e.notify).length}</b><span>to notify of {t.total}</span></div>
+      </div>
+      <div className="roles">
+        {pkg.roles.map((x, i) => (
+          <button key={i} className={i === tab ? 'on' : ''} onClick={() => setTab(i)}>
+            {x.title}<small>{x.concern}</small>
           </button>
         ))}
       </div>
-      <div className="note">Real NWS alert history replayed through the same rules + agent as live mode.</div>
-    </div>
-  )
-}
-
-function Overview({ a, tz, onDecided }) {
-  const r = a.rules
-  const posture = r.posture || 'REVIEW'
-  return (
-    <div className="grid">
-      <section className={`card posture p-${posture}`}>
-        <div className="posture-top">
-          <span className={`phase ph-${r.phase}`}>{PHASE_LABEL[r.phase]}</span>
-          <span className={`conf c-${r.confidence}`}>Confidence: {r.confidence}</span>
-        </div>
-        <div className="posture-label">{r.posture_label}</div>
-        <div className="posture-day">
-          Recommendation for <strong>{r.window.day} {r.window.date}</strong> · hours {fmtTime(r.window.start, tz).split(', ').pop()}
-          {' · '}as of {fmtTime(a.as_of, tz)}
-        </div>
-        <div className="conf-reason">{r.confidence_reason}</div>
-        {r.needs_review && <div className="banner error">NWS data unavailable — the system will not recommend OPEN. Decide manually.</div>}
-        {r.phase === 'correction' && <div className="banner warn">Previous decision was <strong>{r.last_posture}</strong>. Conditions improved → correction notice will be sent.</div>}
-      </section>
-
-      <section className="card">
-        <h3>Rationale <small>{a.rationale_by.startsWith('agent') ? `written by ${a.rationale_by}` : 'template (no model configured)'}</small></h3>
-        <p className="rationale">{a.rationale}</p>
-        <CopyButton text={a.rationale} />
-        {a.agent_error && <div className="muted small">Agent fallback: {a.agent_error}</div>}
-      </section>
-
-      <Decision a={a} onDecided={onDecided} />
-
-      <section className="card wide">
-        <h3>Why — thresholds crossed</h3>
-        {r.triggers.length === 0 ? <p className="muted">No input crossed a threshold.</p> : (
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th></th><th>Input (observed)</th><th>Threshold</th><th>Exceeded by</th><th>→ Posture</th><th>Basis</th><th>Source · time</th></tr></thead>
-              <tbody>
-                {r.triggers.map((t, i) => (
-                  <tr key={i} className={i === 0 ? 'deciding' : ''}>
-                    <td>{i === 0 ? '★' : ''}</td>
-                    <td>{t.observed}{t.note ? <div className="muted small">{t.note}</div> : null}</td>
-                    <td>{t.threshold}</td>
-                    <td>{t.exceed_by}</td>
-                    <td><span className={`chip p-${t.posture}`}>{POSTURE_LABEL[t.posture]}{t.advance ? ' + notice' : ''}{t.shelter ? ' + SHELTER' : ''}</span></td>
-                    <td className="small">{t.basis}</td>
-                    <td className="small">{t.source}<br />{fmtTime(t.at, tz)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="msg">
+        <div className="msg-h"><span>To: {role.to}</span><span className="muted">{role.written_by === 'agent' ? 'drafted by agent' : 'template'}</span></div>
+        <div className="msg-s">{role.subject}</div>
+        <pre>{role.body}</pre>
+        {role.programs && (
+          <div className="progs">
+            {role.programs.map((p) => <span key={p.name} className={`prog ${p.status}`}>{p.name}: {p.status}</span>)}
           </div>
         )}
-        <h4>What would change this recommendation</h4>
-        <ul>{r.what_would_change.map((w, i) => <li key={i}>{w}</li>)}</ul>
-      </section>
-
-      <Inputs a={a} tz={tz} />
-      <Trace a={a} />
-    </div>
+      </div>
+      <div className="emp">
+        {groups.map((g) => {
+          const list = pkg.employees.filter((e) => e.status === g)
+          if (!list.length) return null
+          return (
+            <div key={g} className="emp-g">
+              <div className="emp-gh">{glabel[g]} <span>{list.length}</span></div>
+              {list.map((e) => (
+                <div key={e.id} className={`emp-r ${e.notify ? 'yes' : 'no'}`}>
+                  <span className="emp-n">{e.notify ? '●' : '○'}</span>
+                  <div className="emp-who"><b>{e.name}</b> <span className="muted">{e.agency} · {e.role}{e.work_location === 'field' ? ' · field' : ''}</span></div>
+                  <div className="emp-why">{e.reason}{e.accessibility_needs && <div className="acc">♿ {e.accessibility_needs}</div>}</div>
+                  <div className="emp-ch">{e.channels.map((c) => <span key={c}>{c}</span>)}</div>
+                </div>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
-function CopyButton({ text }) {
-  const [done, setDone] = useState(false)
-  return (
-    <button className="ghost" onClick={() => { navigator.clipboard?.writeText(text); setDone(true); setTimeout(() => setDone(false), 1500) }}>
-      {done ? '✓ Copied' : '⧉ Copy for email'}
-    </button>
-  )
-}
-
-function Decision({ a, onDecided }) {
-  const [override, setOverride] = useState(false)
-  const [posture, setPosture] = useState(a.rules.posture || 'CLOSED')
+/* ---------------- DECISION ---------------- */
+function Decision({ a, chosen, setChosen }) {
+  const r = a.rules
+  const [custom, setCustom] = useState('')
   const [reason, setReason] = useState('')
+  const [by, setBy] = useState('Denise Fontenot')
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
-  useEffect(() => { setMsg(null); setOverride(false); setReason(''); setPosture(a.rules.posture || 'CLOSED') }, [a.id, a.rules.posture])
-
-  const submit = async (action) => {
+  useEffect(() => { setMsg(null) }, [a.id])
+  const ok = chosen && reason.trim().length >= 15 && (chosen !== 'CUSTOM' || custom.trim())
+  const submit = async () => {
     setBusy(true)
     try {
-      const body = { assessment_id: a.id, action }
-      if (action === 'override') Object.assign(body, { final_posture: posture, reason })
-      const rec = await api.decide(body)
-      setMsg(`✓ ${rec.record_id}: ${POSTURE_LABEL[rec.final_posture]} ${rec.overridden ? '(override)' : '(confirmed)'} by ${rec.decided_by}`)
-      onDecided?.()
+      const rec = await api.decide({ assessment_id: a.id, option: chosen, custom_text: custom, reason, decided_by: by })
+      setMsg({ ok: true, text: `${rec.record_id} saved — "${rec.decision}" by ${rec.decided_by}, with full evidence snapshot.` })
+      setReason('')
     } catch (e) {
-      setMsg('⚠ ' + e.message)
+      setMsg({ ok: false, text: e.message })
     } finally {
       setBusy(false)
     }
   }
   return (
-    <section className="card">
-      <h3>Manager decision</h3>
-      <p className="muted small">The system recommends. A human decides. Every decision is recorded.</p>
-      {!override ? (
-        <div className="row">
-          <button className="primary" disabled={busy || !a.rules.posture} onClick={() => submit('confirm')}>
-            ✓ Confirm {a.rules.posture ? POSTURE_LABEL[a.rules.posture] : ''}
-          </button>
-          <button className="ghost" onClick={() => setOverride(true)}>Override…</button>
-        </div>
-      ) : (
-        <div className="override">
-          <select value={posture} onChange={(e) => setPosture(e.target.value)}>
-            {POSTURES.map((p) => <option key={p} value={p}>{POSTURE_LABEL[p]}</option>)}
-          </select>
-          <textarea placeholder="Reason for overriding (required)" value={reason} onChange={(e) => setReason(e.target.value)} />
-          <div className="row">
-            <button className="primary" disabled={busy || !reason.trim()} onClick={() => submit('override')}>Record override</button>
-            <button className="ghost" onClick={() => setOverride(false)}>Cancel</button>
-          </div>
-        </div>
-      )}
-      {msg && <div className="small decision-msg">{msg}</div>}
-    </section>
-  )
-}
-
-function Inputs({ a, tz }) {
-  const { alerts, gauge, forecast } = a.inputs
-  const peak = forecast?.periods?.length ? forecast.periods.slice(0, 24).reduce((m, p) => (p.wind_mph > m.wind_mph ? p : m)) : null
-  return (
-    <section className="card wide">
-      <h3>Inputs <small>every value with its source and retrieval time</small></h3>
-      <div className="status-row">
-        {Object.entries(a.data_status).map(([k, v]) => <span key={k} className={`chip s-${v.replace('/', '')}`}>{k}: {v}</span>)}
+    <section className="panel decision">
+      <h2>Decision <span>a human decides · reason required</span></h2>
+      <div className="dec-opts">
+        {r.options.map((o) => (
+          <label key={o.key} className={`dec-o ${chosen === o.key ? 'on' : ''} ${o.recommended ? 'recd' : ''}`}>
+            <input type="radio" name="opt" checked={chosen === o.key} onChange={() => setChosen(o.key)} />
+            {o.label}{o.recommended && <em>recommended</em>}
+          </label>
+        ))}
+        <label className={`dec-o ${chosen === 'CUSTOM' ? 'on' : ''}`}>
+          <input type="radio" name="opt" checked={chosen === 'CUSTOM'} onChange={() => setChosen('CUSTOM')} />Custom
+        </label>
       </div>
-      <h4>NWS alerts in effect ({alerts ? alerts.length : 'unavailable'})</h4>
-      {alerts?.length ? (
-        <div className="alerts">
-          {alerts.map((al) => (
-            <div key={al.id} className="alert">
-              <div><strong>{al.event}</strong> <span className="muted">· {al.severity} / {al.certainty} / {al.urgency}</span></div>
-              <div className="small">{al.area}</div>
-              <div className="small muted">Effective {fmtTime(al.effective, tz)} · Expires {fmtTime(al.ends || al.expires, tz)} · {al.sender}</div>
-            </div>
-          ))}
-        </div>
-      ) : <p className="muted">{alerts ? 'No active alerts for this point.' : 'NWS unreachable.'}</p>}
-      {a.rules.ignored_alerts.length > 0 && (
-        <p className="small muted">Not decision-relevant: {a.rules.ignored_alerts.map((x) => x.event).join(', ')}</p>
-      )}
-      <div className="two">
-        <div>
-          <h4>River gauge</h4>
-          {gauge ? (
-            <div className="small">
-              <strong>{gauge.name}</strong><br />
-              Stage {gauge.stage_ft ?? '—'} ft · category <strong>{gauge.category}</strong><br />
-              Flood stages: {Object.entries(gauge.flood_stages_ft).map(([k, v]) => `${k} ${v} ft`).join(' · ')}<br />
-              <span className="muted">{gauge.source} · observed {fmtTime(gauge.observed_at, tz)}</span>
-            </div>
-          ) : <p className="muted small">{a.data_status.gauge === 'n/a' ? 'Not used in replay.' : 'Unavailable.'}</p>}
-        </div>
-        <div>
-          <h4>Hourly forecast</h4>
-          {peak ? (
-            <div className="small">
-              Next 24h peak wind <strong>{peak.wind_mph} mph</strong> at {fmtTime(peak.start, tz)}<br />
-              Now: {forecast.periods[0].short}, precip {forecast.periods[0].precip_pct}%<br />
-              <span className="muted">{forecast.source} · fetched {fmtTime(forecast.fetched_at, tz)}</span>
-            </div>
-          ) : <p className="muted small">{a.data_status.forecast === 'n/a' ? 'Not archived for replay.' : 'Unavailable.'}</p>}
-        </div>
+      {chosen === 'CUSTOM' && <input className="inp" placeholder="Describe your decision, e.g. Open 10:00–14:00, FSA counter closed" value={custom} onChange={(e) => setCustom(e.target.value)} />}
+      <textarea className="inp" rows={4} placeholder="Reason (required) — what you weighed and why. This goes into the permanent record."
+        value={reason} onChange={(e) => setReason(e.target.value)} />
+      <div className="dec-foot">
+        <input className="inp by" value={by} onChange={(e) => setBy(e.target.value)} />
+        <button className="btn primary" disabled={!ok || busy} onClick={submit}>{busy ? 'Saving…' : 'Submit decision'}</button>
       </div>
+      {!ok && <div className="muted small">Pick an option and write at least one sentence of reasoning to submit.</div>}
+      {msg && <div className={msg.ok ? 'okmsg' : 'err'}>{msg.text}</div>}
     </section>
   )
 }
 
 function Trace({ a }) {
   return (
-    <section className="card wide">
-      <details>
-        <summary><strong>Agent tool calls</strong> <span className="muted small">({a.trace.length} steps · {a.rationale_by})</span></summary>
-        <ol className="trace">
-          {a.trace.map((t, i) => (
-            <li key={i} className={t.ok ? '' : 'bad'}><code>{t.tool}</code> <span className="muted">{t.ms} ms</span> — {t.summary}</li>
-          ))}
-        </ol>
-      </details>
-    </section>
+    <details className="panel trace">
+      <summary>Agent tool calls · {a.trace.length} steps · {a.rationale_by}</summary>
+      <ol>{a.trace.map((t, i) => <li key={i} className={t.ok ? '' : 'bad'}><code>{t.tool}</code> <span className="muted">{t.ms} ms</span> {t.summary}</li>)}</ol>
+    </details>
   )
 }
 
-function Notifications({ a }) {
-  const pkg = a.notifications
-  const ga = a.rules.group_actions
-  return (
-    <div className="grid">
-      <section className="card wide">
-        <h3>Notification package <small>{pkg.summary}</small></h3>
-        <div className="groups">
-          {Object.entries(ga).map(([g, v]) => (
-            <div key={g} className={`group u-${v.urgency}`}>
-              <div className="g-name">{GROUP_LABEL[g] || g}</div>
-              <div className="g-urg">{v.urgency}</div>
-              <div className="small">{v.action}</div>
-            </div>
-          ))}
-        </div>
-        <p className="muted small">Channels are labeled only — nothing is actually sent.</p>
-      </section>
-      <section className="card wide">
-        <h3>Notify ({pkg.recipients.length}) <small>in send order</small></h3>
-        {pkg.recipients.length === 0 && <p className="muted">No one needs to be notified.</p>}
-        {pkg.recipients.map((x) => <Recipient key={x.employee.id} x={x} />)}
-      </section>
-      <section className="card wide">
-        <h3>Not notified ({pkg.excluded.length}) <small>and why</small></h3>
-        <ul className="excluded">
-          {pkg.excluded.map((x) => (
-            <li key={x.employee.id}><strong>{x.employee.name}</strong> <span className="muted">{x.employee.role}</span> — {x.reason}</li>
-          ))}
-        </ul>
-      </section>
-    </div>
-  )
-}
-
-function Recipient({ x }) {
-  const [open, setOpen] = useState(x.order === 1)
-  return (
-    <div className={`recipient u-${x.urgency}`}>
-      <div className="r-head" onClick={() => setOpen(!open)}>
-        <span className="r-order">{x.order}</span>
-        <div className="r-who">
-          <strong>{x.employee.name}</strong> <span className="muted small">{x.employee.role}</span>
-          <div className="small">
-            <span className="chip">{GROUP_LABEL[x.group]}</span>
-            <span className={`chip u-${x.urgency}`}>{x.urgency}</span>
-            {x.channels.map((c) => <span key={c} className="chip ch">{c}</span>)}
-            {x.employee.essential && <span className="chip ess">essential</span>}
-            {x.accessibility_note && <span className="chip acc">♿ accessibility</span>}
-          </div>
-          <div className="small muted">Why included: {x.reason}</div>
-        </div>
-        <span className="r-toggle">{open ? '▾' : '▸'}</span>
-      </div>
-      {open && (
-        <div className="msg">
-          <div className="msg-subj">{x.message.subject}</div>
-          <pre>{x.message.body}</pre>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Records({ records }) {
-  const [openId, setOpenId] = useState(null)
+/* ---------------- RECORDS ---------------- */
+function Records() {
+  const [list, setList] = useState(null)
+  const [open, setOpen] = useState(null)
   const [detail, setDetail] = useState(null)
-  const open = async (id) => {
-    if (openId === id) { setOpenId(null); return }
-    setOpenId(id)
+  useEffect(() => { api.records().then(setList) }, [])
+  const toggle = async (id) => {
+    if (open === id) return setOpen(null)
+    setOpen(id); setDetail(null)
     setDetail(await api.record(id))
   }
-  if (!records.length) return <div className="empty">No decisions recorded yet. Confirm or override a recommendation to create one.</div>
+  if (!list) return <div className="boot">Loading…</div>
+  if (!list.length) return <div className="boot">No decisions yet. Submit one from the dashboard.</div>
   return (
-    <div className="timeline">
-      {records.map((r) => (
-        <div key={r.record_id} className="tl-item">
-          <div className="tl-dot" />
-          <div className="tl-body card">
-            <div className="tl-head" onClick={() => open(r.record_id)}>
-              <div>
-                <strong>{r.record_id}</strong> · {r.location_label} · <span className="muted">{r.mode}</span>
-                <div className="small muted">Decided {fmtTime(r.decided_at)} by {r.decided_by} · data as of {fmtTime(r.as_of)}</div>
-              </div>
-              <div className="tl-postures">
-                <span className={`chip p-${r.recommended_posture}`}>Rec: {POSTURE_LABEL[r.recommended_posture] || 'none'}</span>
-                <span className={`chip p-${r.final_posture}`}>Final: {POSTURE_LABEL[r.final_posture]}</span>
-                {r.overridden && <span className="chip warn">override</span>}
-              </div>
+    <main className="records">
+      {list.map((r) => (
+        <div key={r.record_id} className="panel rec-item">
+          <div className="rec-h" onClick={() => toggle(r.record_id)}>
+            <div>
+              <div className="rec-id">{r.record_id} · {r.operating_day}</div>
+              <div className="rec-dec">{r.decision}</div>
+              <div className="muted small">by {r.decided_by} · {fmt(r.decided_at, { month: 'short', day: 'numeric' })} · system recommended “{r.recommended_label}” {r.followed_recommendation ? '✓ followed' : '— overridden'}</div>
             </div>
-            {r.override_reason && <div className="small"><strong>Override reason:</strong> {r.override_reason}</div>}
-            {openId === r.record_id && detail && <Snapshot rec={detail} />}
+            <span className={`pill ${lv(r.level)}`}>Hazard {r.level}/4 · {r.confidence}</span>
           </div>
+          <div className="rec-reason">“{r.reason}”</div>
+          {open === r.record_id && (detail ? <Evidence e={detail.evidence} /> : <div className="muted">Loading evidence…</div>)}
         </div>
       ))}
-    </div>
+    </main>
   )
 }
 
-function Snapshot({ rec }) {
-  const s = rec.snapshot
+function Evidence({ e }) {
+  const r = e.rules
+  const inp = e.inputs
   return (
-    <div className="snapshot">
-      <h4>What was known at {fmtTime(s.as_of)}</h4>
-      <div className="small">Data status: {Object.entries(s.data_status).map(([k, v]) => `${k} ${v}`).join(' · ')}</div>
-      <ul className="small">
-        {(s.inputs.alerts || []).map((al) => (
-          <li key={al.id}>{al.event} ({al.severity}/{al.certainty}/{al.urgency}) — {al.source}, fetched {al.fetched_at}</li>
-        ))}
-        {s.inputs.gauge && <li>{s.inputs.gauge.name}: {s.inputs.gauge.stage_ft} ft — {s.inputs.gauge.source}</li>}
-      </ul>
-      <h4>Rule result</h4>
-      <div className="small">{s.rules.posture_label} · confidence {s.rules.confidence} · phase {s.rules.phase}</div>
-      <ul className="small">{s.rules.triggers.map((t, i) => <li key={i}>{t.rule} — {t.exceed_by} → {t.posture}</li>)}</ul>
-      <h4>Rationale ({s.rationale_by})</h4>
-      <p className="small">{s.rationale}</p>
-      <h4>Notifications</h4>
-      <div className="small">{s.notifications.summary}</div>
-      <h4>Agent trace</h4>
-      <ol className="small">{s.trace.map((t, i) => <li key={i}>{t.tool}: {t.summary}</li>)}</ol>
+    <div className="evidence">
+      <h3>Evidence snapshot · data as of {fmt(e.as_of, { month: 'short', day: 'numeric' })}</h3>
+      <div className="ev-grid">
+        <div><span>NWS alerts</span>{inp.alerts ? inp.alerts.map((x) => <div key={x.id}>{x.event} — {x.severity}/{x.certainty} · fetched {fmt(x.fetched_at)}</div>) : 'unavailable'}</div>
+        <div><span>River</span>{inp.gauge ? `${inp.gauge.name}: ${inp.gauge.stage_ft} ft (${inp.gauge.category}) · ${fmt(inp.gauge.fetched_at)}` : 'unavailable'}</div>
+        <div><span>Power</span>{inp.outage ? `${inp.outage.customers_out} / ${inp.outage.customers_served} out · ${fmt(inp.outage.fetched_at)}` : 'unavailable'}</div>
+        <div><span>Roads</span>{inp.roads ? `${inp.roads.weather_related_closures} weather closures · ${fmt(inp.roads.fetched_at)}` : 'unavailable'}</div>
+        <div><span>Facility</span>{inp.facility_status ? `power ${inp.facility_status.power}, water ${inp.facility_status.water}, roof ${inp.facility_status.roof}, roads ${inp.facility_status.roads}` : '—'}</div>
+        <div><span>Rules</span>{r.recommended_label} · level {r.level} · {r.agencies.map((g) => `${g.code} ${g.label}`).join('; ')}</div>
+      </div>
+      <h3>Thresholds crossed</h3>
+      <ul className="small">{r.signals.map((s, i) => <li key={i}>{s.title}: {s.observed} — {s.threshold}, {s.exceed_by} ({s.source})</li>)}</ul>
+      <h3>Rationale shown to the decision-maker</h3>
+      <p className="small">{e.rationale}</p>
+      <h3>Notifications prepared</h3>
+      <div className="small">{e.notifications.summary}</div>
     </div>
   )
 }

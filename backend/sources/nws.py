@@ -32,6 +32,8 @@ def normalize_alert(feature: dict, fetched_at: str, source: str) -> dict:
         "sender": p.get("senderName", ""),
         "references": [r["identifier"] for r in p.get("references", [])],
         "emergency": "FLASH FLOOD EMERGENCY" in desc.upper(),
+        "where": (re.search(r"\* WHERE\.\.\.(.+?)(?:\n\n|\n\*|$)", desc, re.S).group(1).replace("\n", " ").strip()[:120]
+                  if "* WHERE..." in desc else p.get("areaDesc", "")[:120]),
         "description": desc[:600],
         "instruction": (p.get("instruction") or "")[:400],
         "source": source,
@@ -40,6 +42,7 @@ def normalize_alert(feature: dict, fetched_at: str, source: str) -> dict:
 
 
 def get_point(lat: float, lon: float) -> dict:
+    lat, lon = round(lat, 4), round(lon, 4)
     data, fetched_at = get_json(f"{BASE}/points/{lat},{lon}", ttl=86400)
     p = data["properties"]
     return {
@@ -51,12 +54,22 @@ def get_point(lat: float, lon: float) -> dict:
     }
 
 
-def get_active_alerts(lat: float, lon: float) -> list[dict]:
+def get_active_alerts(lat: float, lon: float, county: str | None = None) -> list[dict]:
+    """Alerts covering the facility point, plus (optionally) any alert for the facility's county/parish —
+    river flood warnings are drawn as polygons along the river, but they still affect commutes across the parish."""
+    lat, lon = round(lat, 4), round(lon, 4)
     url = f"{BASE}/alerts/active"
     data, fetched_at = get_json(url, {"point": f"{lat},{lon}"}, ttl=60)
     src = f"NWS api.weather.gov/alerts/active?point={lat},{lon}"
-    return [normalize_alert(f, fetched_at, src) for f in data.get("features", [])
-            if f["properties"].get("status") == "Actual"]
+    out = {f["properties"]["id"]: dict(normalize_alert(f, fetched_at, src), scope="facility")
+           for f in data.get("features", []) if f["properties"].get("status") == "Actual"}
+    if county:
+        data, fetched_at = get_json(url, {"zone": county}, ttl=60)
+        src = f"NWS api.weather.gov/alerts/active?zone={county}"
+        for f in data.get("features", []):
+            if f["properties"].get("status") == "Actual" and f["properties"]["id"] not in out:
+                out[f["properties"]["id"]] = dict(normalize_alert(f, fetched_at, src), scope="parish")
+    return list(out.values())
 
 
 def get_alert_history(lat: float, lon: float, start: str, snapshot: str | None = None) -> list[dict]:

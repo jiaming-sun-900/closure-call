@@ -1,14 +1,23 @@
 {
-  "id": "usda-csc-01",
-  "name": "USDA County Service Center",
-  "agencies": [
-    "FSA",
-    "NRCS",
-    "RD"
+  "id": "usda-sc-9479",
+  "name": "USDA Lake Charles Service Center",
+  "address": "5417 Gerstner Memorial Dr, Lake Charles, LA 70607",
+  "parish": "Calcasieu Parish",
+  "parish_fips": "22019",
+  "serves": [
+    "Calcasieu Parish",
+    "Cameron Parish"
   ],
+  "lat": 30.163142,
+  "lon": -93.17974,
+  "timezone": "America/Chicago",
+  "in_surge_zone": false,
+  "gauge_lid": "LCHL1",
+  "facility_source": "USDA Service Center Locator \u2014 farmers.gov/scl-ajax?ref_st=22&ref_cnty=019 (site_id 9479)",
   "hours": {
     "start": "08:00",
-    "end": "16:30"
+    "end": "16:30",
+    "note": "Assumed; hours are set locally and not published"
   },
   "operating_days": [
     "Mon",
@@ -17,79 +26,85 @@
     "Thu",
     "Fri"
   ],
+  "holidays": {
+    "2026-10-12": "Columbus Day (federal holiday)",
+    "2026-11-11": "Veterans Day (federal holiday)",
+    "2026-11-26": "Thanksgiving Day (federal holiday)",
+    "2026-12-25": "Christmas Day (federal holiday)"
+  },
   "commute_window_hours": 2,
   "manager": {
-    "name": "Dana Whitfield",
+    "name": "Denise Fontenot",
     "title": "Facility Manager"
   },
-  "current_location": "tallahassee",
-  "locations": {
-    "tallahassee": {
-      "label": "Tallahassee, FL",
-      "address": "2741 Capital Circle NE, Tallahassee, FL (fictional)",
-      "lat": 30.4383,
-      "lon": -84.2807,
-      "timezone": "America/New_York",
-      "gauge_lid": "CAPF1",
-      "in_surge_zone": false
-    },
-    "beaumont": {
-      "label": "Beaumont, TX",
-      "address": "1520 Calder Ave, Beaumont, TX (fictional)",
-      "lat": 30.0802,
-      "lon": -94.1266,
-      "timezone": "America/Chicago",
-      "gauge_lid": "JYBT2",
-      "in_surge_zone": false
-    },
-    "panama_city": {
-      "label": "Panama City, FL",
-      "address": "430 W 11th St, Panama City, FL (fictional)",
-      "lat": 30.1588,
-      "lon": -85.6602,
-      "timezone": "America/Chicago",
-      "gauge_lid": "BEBF1",
-      "in_surge_zone": true
-    },
-    "davenport": {
-      "label": "Davenport, IA",
-      "address": "300 W 3rd St, Davenport, IA (fictional)",
-      "lat": 41.5236,
-      "lon": -90.5776,
-      "timezone": "America/Chicago",
-      "gauge_lid": "RCKI2",
-      "in_surge_zone": false
+  "building_profile": {
+    "name": "Building (OPM standard)",
+    "tolerance": "standard",
+    "tolerance_note": "OPM default: adjust at Severe, close at Extreme",
+    "thresholds": {
+      "adjust": 3,
+      "close": 4
     }
   },
-  "replays": {
-    "isaias": {
-      "label": "Hurricane Isaias \u2014 Panama City, Oct 7\u201310 2026",
-      "location": "panama_city",
-      "start": "2026-10-07T12:00:00Z",
-      "end": "2026-10-10T14:00:00Z",
-      "moments": [
+  "agencies": {
+    "FSA": {
+      "name": "Farm Service Agency \u2014 Calcasieu County Office",
+      "tolerance": "low",
+      "tolerance_note": "Walk-in customer office; farmers drive in from rural roads \u2014 act early",
+      "field_staff": false,
+      "thresholds": {
+        "adjust": 2,
+        "close": 3
+      },
+      "programs": [
         {
-          "at": "2026-10-07T16:00:00Z",
-          "label": "Hurricane Watch issued"
+          "name": "Farm loan servicing",
+          "needs": "office",
+          "telework_ok": true
         },
         {
-          "at": "2026-10-08T03:30:00Z",
-          "label": "Upgraded to Hurricane Warning"
+          "name": "Disaster assistance sign-ups (ELAP / LIP)",
+          "needs": "customers",
+          "telework_ok": false
         },
         {
-          "at": "2026-10-09T17:00:00Z",
-          "label": "Landfall day"
-        },
-        {
-          "at": "2026-10-10T06:30:00Z",
-          "label": "Downgraded to Tropical Storm Warning"
-        },
-        {
-          "at": "2026-10-10T09:30:00Z",
-          "label": "All warnings cancelled"
+          "name": "Acreage reporting & payments",
+          "needs": "office",
+          "telework_ok": true
         }
-      ],
-      "snapshot": "isaias_panama_city_alerts.json"
+      ]
+    },
+    "NRCS": {
+      "name": "NRCS Lake Charles Field Office",
+      "tolerance": "medium",
+      "tolerance_note": "Field-heavy work: office follows OPM, field work stops early",
+      "field_staff": true,
+      "thresholds": {
+        "adjust": 3,
+        "close": 4,
+        "field_suspend": 2
+      },
+      "programs": [
+        {
+          "name": "Conservation planning site visits",
+          "needs": "field",
+          "telework_ok": false
+        },
+        {
+          "name": "EQIP contract administration",
+          "needs": "office",
+          "telework_ok": true
+        },
+        {
+          "name": "Emergency Watershed Protection (EWP) assessments",
+          "needs": "field",
+          "telework_ok": false
+        }
+      ]
     }
-  }
+  },
+  "not_in_building": {
+    "RD": "Rural Development serves Calcasieu from the Lafayette RD Area Office (905 Jefferson St, Lafayette) \u2014 not affected by this facility's status"
+  },
+  "nws_county": "LAC019"
 }

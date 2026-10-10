@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+const BASE = import.meta.env.VITE_API_BASE || `http://${window.location.hostname}:8000`
 
 async function req(path, opts = {}) {
   const r = await fetch(BASE + path, {
@@ -13,7 +13,7 @@ async function req(path, opts = {}) {
 
 export const api = {
   facility: () => req('/facility'),
-  setLocation: (location) => req('/facility/location', { method: 'PUT', body: { location } }),
+  setStatus: (body) => req('/facility/status', { method: 'PUT', body }),
   assess: (body) => req('/assess', { method: 'POST', body }),
   decide: (body) => req('/decision', { method: 'POST', body }),
   records: () => req('/records'),

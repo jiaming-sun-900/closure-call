@@ -8,7 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import agent
-import notify
 import records
 import rules
 
@@ -16,16 +15,21 @@ DATA = Path(__file__).parent / "data"
 app = FastAPI(title="Closure Call")
 app.add_middleware(CORSMiddleware, allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),
                    allow_methods=["*"], allow_headers=["*"])
+ASSESS_DIR = DATA / "assessments"  # persisted so a backend restart never loses the evidence behind a pending decision
+ASSESS_DIR.mkdir(exist_ok=True)
 
-_assessments: dict[str, dict] = {}
+
+def _save_assessment(a: dict):
+    (ASSESS_DIR / f"{a['id']}.json").write_text(json.dumps(a, default=str))
+
+
+def _load_assessment(aid: str) -> dict | None:
+    p = ASSESS_DIR / f"{aid}.json"
+    return json.loads(p.read_text()) if aid.isalnum() and p.exists() else None
 
 
 def load_facility() -> dict:
     return json.loads((DATA / "facility.json").read_text())
-
-
-def save_facility(f: dict):
-    (DATA / "facility.json").write_text(json.dumps(f, indent=2))
 
 
 @app.get("/health")
@@ -35,118 +39,89 @@ def health():
 
 @app.get("/facility")
 def get_facility():
-    f = load_facility()
-    return {**f, "model": agent.model_info()}
+    return {**load_facility(), "status": agent.load_facility_status(), "model": agent.model_info()}
 
 
-class LocationIn(BaseModel):
-    location: str
+class FacilityStatusIn(BaseModel):
+    power: str = "ok"  # ok | generator | out
+    water: str = "ok"  # ok | out
+    roof: str = "ok"  # ok | damaged
+    roads: str = "open"  # open | limited | impassable
+    notes: str = ""
+    updated_by: str = "Denise Fontenot"
 
 
-@app.put("/facility/location")
-def set_location(body: LocationIn):
-    f = load_facility()
-    if body.location not in f["locations"]:
-        raise HTTPException(400, f"unknown location {body.location}")
-    f["current_location"] = body.location
-    save_facility(f)
-    return f
+@app.put("/facility/status")
+def set_facility_status(body: FacilityStatusIn):
+    st = body.model_dump() | {"updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    (DATA / "facility_status.json").write_text(json.dumps(st, indent=2))
+    return st
 
 
 @app.get("/thresholds")
 def thresholds():
-    return {"thresholds": rules.THRESHOLDS, "postures": rules.POSTURE_LABELS, "opm_basis": rules.OPM_BASIS}
+    f = load_facility()
+    return {"event_levels": rules.EVENT_LEVELS, "gauge": rules.GAUGE_BASIS, "outage": rules.OUTAGE_LEVELS,
+            "wind": rules.WIND_LEVELS, "building": f["building_profile"], "agencies": f["agencies"], "postures": rules.POSTURE_LABELS}
 
 
 class AssessIn(BaseModel):
-    mode: str = "live"  # live | replay
-    at: str | None = None  # ISO time for replay
-    replay: str | None = None  # replay id, e.g. "isaias"
-    simulate: str | None = None  # "nws_down" to demo the failure path
+    simulate: str | None = None  # e.g. "nws_down" to demo the failure path
     use_agent: bool = True
 
 
 @app.post("/assess")
 def assess(body: AssessIn):
-    f = load_facility()
-    location = f["current_location"]
-    at = None
-    if body.mode == "replay":
-        rp = f["replays"].get(body.replay or "isaias")
-        if not rp:
-            raise HTTPException(400, "unknown replay")
-        location = rp["location"]
-        at = datetime.fromisoformat(body.at or rp["moments"][0]["at"])
-    snapshot = f["replays"][body.replay or "isaias"].get("snapshot") if body.mode == "replay" else None
-    a = agent.assess(f, location, body.mode, at, body.simulate, body.use_agent, snapshot)
-    _assessments[a["id"]] = a
+    a = agent.assess(load_facility(), simulate=body.simulate, use_agent=body.use_agent)
+    _save_assessment(a)
     return a
-
-
-@app.get("/notifications/preview")
-def notifications_preview(assessment_id: str):
-    a = _assessments.get(assessment_id)
-    if not a:
-        raise HTTPException(404, "assessment not found — run /assess first")
-    return a["notifications"]
 
 
 class DecisionIn(BaseModel):
     assessment_id: str
-    action: str  # confirm | override
-    final_posture: str | None = None
-    decided_by: str = "Dana Whitfield"
-    reason: str | None = None
+    option: str  # one of rules.POSTURES or "CUSTOM"
+    custom_text: str | None = None
+    reason: str
+    decided_by: str = "Denise Fontenot"
 
 
 @app.post("/decision")
 def decision(body: DecisionIn):
-    a = _assessments.get(body.assessment_id)
+    a = _load_assessment(body.assessment_id)
     if not a:
-        raise HTTPException(404, "assessment not found — run /assess first")
-    rec_posture = a["rules"]["posture"]
-    if body.action == "confirm":
-        if rec_posture is None:
-            raise HTTPException(400, "No recommendation to confirm — choose a posture (override) with a reason")
-        final = rec_posture
-    elif body.action == "override":
-        if body.final_posture not in rules.POSTURES:
-            raise HTTPException(400, "final_posture must be one of " + ", ".join(rules.POSTURES))
-        if not (body.reason or "").strip():
-            raise HTTPException(400, "Overriding the recommendation requires a reason")
-        final = body.final_posture
+        raise HTTPException(404, "Assessment not found — run an assessment first")
+    if not body.reason or len(body.reason.strip()) < 15:
+        raise HTTPException(400, "A reason paragraph is required (at least a sentence)")
+    if body.option == "CUSTOM":
+        if not (body.custom_text or "").strip():
+            raise HTTPException(400, "Describe the custom decision")
+        label, posture = body.custom_text.strip(), None
+    elif body.option in rules.POSTURES:
+        label, posture = rules.POSTURE_LABELS[body.option], body.option
     else:
-        raise HTTPException(400, "action must be confirm or override")
-
+        raise HTTPException(400, "Unknown option")
+    r = a["rules"]
     entry = {
-        "record_id": f"rec-{len(records.all_records()) + 1:04d}",
+        "record_id": f"DR-{len(records.all_records()) + 1:04d}",
         "decided_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "as_of": a["as_of"],
-        "mode": a["mode"],
-        "location": a["location"],
-        "location_label": a["location_label"],
-        "recommended_posture": rec_posture,
-        "final_posture": final,
-        "action": body.action,
-        "overridden": final != rec_posture,
-        "override_reason": body.reason if body.action == "override" else None,
         "decided_by": body.decided_by,
-        "phase": a["rules"]["phase"],
-        "confidence": a["rules"]["confidence"],
-        "rationale": a["rationale"],
-        "rationale_by": a["rationale_by"],
-        "notification_summary": a["notifications"]["summary"],
-        "snapshot": a,  # full inputs (with sources + timestamps), rule result, notifications, agent trace
+        "operating_day": f"{r['window']['day']} {r['window']['date']}",
+        "decision": label,
+        "posture": posture,
+        "recommended": r["recommended"],
+        "recommended_label": r["recommended_label"],
+        "followed_recommendation": posture == r["recommended"],
+        "reason": body.reason.strip(),
+        "level": r["level"], "confidence": r["confidence"],
+        "evidence": a,  # complete snapshot: every input with source + timestamp, rule result, drafts, agent trace
     }
     records.append(entry)
-    return {k: v for k, v in entry.items() if k != "snapshot"}
+    return {k: v for k, v in entry.items() if k != "evidence"}
 
 
 @app.get("/records")
-def get_records(full: bool = False):
-    recs = records.all_records()
-    recs.sort(key=lambda r: r["decided_at"], reverse=True)
-    return recs if full else [{k: v for k, v in r.items() if k != "snapshot"} for r in recs]
+def get_records():
+    return [{k: v for k, v in r.items() if k != "evidence"} for r in reversed(records.all_records())]
 
 
 @app.get("/records/{record_id}")
@@ -155,8 +130,3 @@ def get_record(record_id: str):
         if r["record_id"] == record_id:
             return r
     raise HTTPException(404, "record not found")
-
-
-@app.get("/roster")
-def roster():
-    return notify.load_roster()
