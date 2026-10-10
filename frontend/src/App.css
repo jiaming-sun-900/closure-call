@@ -343,3 +343,9 @@ html, body { overflow-x: hidden; }
   .block summary::after { margin-left: auto; }
   .block-body { padding: 0 16px 16px; }
 }
+@media (max-width: 900px) {
+  .toolbar { flex-wrap: nowrap; }
+  .toolbar > .quiet { display: none; }
+  .toolbar .row { flex-wrap: nowrap; gap: 6px; }
+  .toolbar .btn.sm { padding: 6px 10px; font-size: 13px; }
+}
