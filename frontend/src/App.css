@@ -75,24 +75,9 @@ html, body { overflow-x: hidden; }
 @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* leaf mascot */
-.leaf { overflow: visible; flex-shrink: 0; }
-.leaf-body { fill: #4caf6e; stroke: var(--usda); stroke-width: 3; }
-.leaf-l2 .leaf-body { fill: #8fbf55; }
-.leaf-l3 .leaf-body { fill: #c9b23f; }
-.leaf-l4 .leaf-body { fill: #d98a3a; }
-.leaf-stem, .leaf-vein { stroke: var(--usda); stroke-width: 3; fill: none; stroke-linecap: round; }
-.leaf-vein { opacity: .25; }
-.face { stroke: #1d3a2a; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.face .fill { fill: #1d3a2a; stroke: none; }
-.face ellipse, .leaf-l3 .face circle:not(.fill), .leaf-l4 .face circle:not(.fill) { fill: #fff; }
-.blush { fill: #f49b9b; opacity: .6; }
-.sweat { fill: #7cc4f5; animation: drip 1.6s ease-in infinite; }
-.leaf { transform-origin: 50% 90%; animation: sway 4s ease-in-out infinite; }
-.leaf-l3 { animation-duration: 1.6s; }
-.leaf-l4 { animation: shake .35s linear infinite; }
-@keyframes sway { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
-@keyframes shake { 0%, 100% { transform: translateX(-1.5px) rotate(-2deg); } 50% { transform: translateX(1.5px) rotate(2deg); } }
-@keyframes drip { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(10px); opacity: 0; } }
+.leaf { overflow: visible; flex-shrink: 0; transform-origin: 50% 88%; animation: sway 4s ease-in-out infinite; }
+.leaf-stem { stroke: #1f7a43; stroke-width: 3.5; fill: none; stroke-linecap: round; }
+@keyframes sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
 
 /* overview hero */
 .hero { display: flex; align-items: center; gap: 22px; background: linear-gradient(120deg, var(--usda-l), #fff 70%); border: 1px solid var(--line); border-radius: 24px; padding: 22px 26px; position: relative; overflow: hidden; }
