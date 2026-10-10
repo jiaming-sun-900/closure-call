@@ -45,7 +45,8 @@ def simulate(a: dict, facility: dict, *, river_ft=None, outage_pct=None, wind_mp
     """Re-run the rules on the assessment's inputs with some values replaced."""
     inp = copy.deepcopy(a["inputs"])
     now = datetime.fromisoformat(a["as_of"])
-    win = rules.operating_window(facility, now)
+    target = a["rules"]["window"]["date"] if a["rules"]["window"].get("chosen") else None
+    win = rules.operating_window(facility, now, target)
     changed = []
     if river_ft is not None and inp.get("gauge"):
         inp["gauge"].update(stage_ft=float(river_ft), forecast=[])
@@ -75,7 +76,7 @@ def simulate(a: dict, facility: dict, *, river_ft=None, outage_pct=None, wind_mp
                        "source": "hypothetical scenario", "fetched_at": now.isoformat()})
         changed.append(new_alert)
     r = rules.evaluate(alerts=alerts, forecast=inp.get("forecast"), gauge=inp.get("gauge"), outage=inp.get("outage"),
-                       roads=inp.get("roads"), facility_status=fs, facility=facility, now=now)
+                       roads=inp.get("roads"), facility_status=fs, facility=facility, now=now, target_date=target)
     pkg = notify.build_package(r, facility)
     return {"changed": changed, "rules": r, "availability": pkg["availability"],
             "inputs": {"gauge": inp.get("gauge"), "outage": inp.get("outage"), "facility_status": fs, "forecast": inp.get("forecast")}}

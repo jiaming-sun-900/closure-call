@@ -11,8 +11,11 @@ async function req(path, opts = {}) {
   return data
 }
 
-export const streamAssess = (simulate, onEvent) => {
-  const es = new EventSource(BASE + '/assess/stream' + (simulate ? `?simulate=${simulate}` : ''))
+export const streamAssess = (simulate, onEvent, date) => {
+  const qs = new URLSearchParams()
+  if (simulate) qs.set('simulate', simulate)
+  if (date) qs.set('date', date)
+  const es = new EventSource(BASE + '/assess/stream' + (qs.toString() ? `?${qs}` : ''))
   es.onmessage = (m) => {
     const ev = JSON.parse(m.data)
     onEvent(ev)
@@ -24,6 +27,7 @@ export const streamAssess = (simulate, onEvent) => {
 
 export const api = {
   facility: () => req('/facility'),
+  situation: () => req('/situation'),
   setStatus: (body) => req('/facility/status', { method: 'PUT', body }),
   assess: (body) => req('/assess', { method: 'POST', body }),
   decide: (body) => req('/decision', { method: 'POST', body }),

@@ -52,7 +52,7 @@ export function oneLiner(r) {
     if (g.posture !== r.recommended) bits.push(VERB[g.posture])
     if (g.field_work === 'suspended') bits.push('stops field work')
     if (g.field_work === 'restricted') bits.push('limits field work')
-    return bits.length ? `${g.code} ${bits.join(' and ')}` : null
+    return bits.length ? `${({ FSA: 'Farm Service Agency (FSA)', NRCS: 'Natural Resources Conservation Service (NRCS)' })[g.code] || g.code} ${bits.join(' and ')}` : null
   }).filter(Boolean)
   return `${dayName(r)}: ${[b, ...ag].join(', ')}`
 }
@@ -91,3 +91,14 @@ export const STATUS = {
   leave: { icon: '🌴', label: 'On leave' },
 }
 export const CHANNEL = { sms: '📱', email: '✉️', phone: '📞' }
+
+export const AGENCY_FULL = {
+  FSA: 'Farm Service Agency (FSA)',
+  NRCS: 'Natural Resources Conservation Service (NRCS)',
+}
+export const AGENCY_NAME = { FSA: 'Farm Service Agency', NRCS: 'Natural Resources Conservation Service' }
+export const greeting = (name = 'Denise') => {
+  const h = Number(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', hour: 'numeric', hour12: false }))
+  return `${h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'}, ${name}`
+}
+export const dayLong = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })

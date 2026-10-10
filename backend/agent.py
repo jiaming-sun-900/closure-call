@@ -37,8 +37,8 @@ def load_facility_status() -> dict:
 class Ctx:
     """Per-assessment state shared by the tools."""
 
-    def __init__(self, facility: dict, at: datetime, simulate: str | None, on_event=None):
-        self.facility, self.at, self.simulate = facility, at, simulate
+    def __init__(self, facility: dict, at: datetime, simulate: str | None, on_event=None, target_date: str | None = None):
+        self.facility, self.at, self.simulate, self.target_date = facility, at, simulate, target_date
         self.on_event = on_event or (lambda e: None)
         self.alerts = self.forecast = self.gauge = self.outage = self.roads = self.fstatus = None
         self.rules = self.package = None
@@ -86,8 +86,8 @@ class Ctx:
 
     def get_forecast(self):
         f = self.facility
-        fc = self._fetch("get_forecast", "forecast", lambda: nws.get_hourly_forecast(f["lat"], f["lon"], hours=96),
-                         lambda v: f"96 h hourly; peak wind {max(p['wind_mph'] for p in v['periods'])} mph")
+        fc = self._fetch("get_forecast", "forecast", lambda: nws.get_hourly_forecast(f["lat"], f["lon"], hours=168),
+                         lambda v: f"7-day hourly; peak wind {max(p['wind_mph'] for p in v['periods'])} mph")
         if not fc:
             return {"status": "error"}
         return {"status": "ok", "peak_wind_mph_96h": max(p["wind_mph"] for p in fc["periods"]), "next_hours": fc["periods"][:4]}
@@ -133,7 +133,8 @@ class Ctx:
                 getattr(self, step)()
         self.rules = rules.evaluate(alerts=self.alerts, forecast=self.forecast, gauge=self.gauge, outage=self.outage,
                                     roads=self.roads, facility_status=self.fstatus, facility=self.facility, now=self.at,
-                                    data_status=self.status, last_posture=records.last_posture())
+                                    data_status=self.status, last_posture=records.last_posture(),
+                                    target_date=self.target_date)
         r = self.rules
         self.log("evaluate_rules", t0, f"{r['recommended']} · level {r['level']} · {r['confidence']} · " +
                  ", ".join(f"{a['code']} {a['posture']}" for a in r["agencies"]))
@@ -284,9 +285,9 @@ def _redact(text: str) -> str:
 
 
 def assess(facility: dict, at: datetime | None = None, simulate: str | None = None, use_agent: bool = True,
-           on_event=None) -> dict:
+           on_event=None, target_date: str | None = None) -> dict:
     at = at or datetime.now(timezone.utc)
-    ctx = Ctx(facility, at, simulate, on_event)
+    ctx = Ctx(facility, at, simulate, on_event, target_date)
     t0 = time.time()
     # 1. Deterministic pass: fetch every source in parallel, run the rules, build the notification package
     with ThreadPoolExecutor(max_workers=7) as ex:

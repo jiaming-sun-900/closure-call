@@ -61,13 +61,30 @@ def _t(s):
 
 
 # ------------------------------------------------------------------ operating day
-def operating_window(facility: dict, now: datetime) -> dict:
+def closed_reason(facility: dict, day: date) -> str | None:
+    holidays = {date.fromisoformat(d): n for d, n in facility.get("holidays", {}).items()}
+    if day in holidays:
+        return holidays[day].replace(" (federal holiday)", "")
+    if DAYS[day.weekday()] not in facility["operating_days"]:
+        return "Weekend"
+    return None
+
+
+def operating_window(facility: dict, now: datetime, target: str | None = None) -> dict:
     """The work day this decision is about: today if before close on an operating day, else the next one
-    (skipping weekends and federal holidays)."""
+    (skipping weekends and federal holidays). `target` (YYYY-MM-DD) picks a specific day instead."""
     z = ZoneInfo(facility["timezone"])
     local = now.astimezone(z)
     h0, h1 = (time.fromisoformat(facility["hours"][k]) for k in ("start", "end"))
     holidays = {date.fromisoformat(d): n for d, n in facility.get("holidays", {}).items()}
+    if target:
+        day = date.fromisoformat(target)
+        start, end = datetime.combine(day, h0, z), datetime.combine(day, h1, z)
+        commute = start - timedelta(hours=facility.get("commute_window_hours", 2))
+        phase = "before_commute" if local < commute else "commute" if local < start else "work_hours"
+        return {"date": day.isoformat(), "day": DAYS[day.weekday()], "start": start, "end": end, "commute_start": commute,
+                "now_phase": phase, "is_today": day == local.date(), "skipped": [], "chosen": True,
+                "closed": closed_reason(facility, day)}
     day, skipped = local.date(), []
     for _ in range(10):
         start, end = datetime.combine(day, h0, z), datetime.combine(day, h1, z)
@@ -252,9 +269,9 @@ def field_status(profile: dict, level: int) -> str | None:
 
 # ------------------------------------------------------------------ main entry
 def evaluate(*, alerts, forecast, gauge, outage, facility_status, facility: dict, now: datetime, roads=None,
-             data_status: dict | None = None, last_posture: str | None = None) -> dict:
+             data_status: dict | None = None, last_posture: str | None = None, target_date: str | None = None) -> dict:
     data_status = data_status or {}
-    w = operating_window(facility, now)
+    w = operating_window(facility, now, target_date)
     sigs, ignored = [], []
     for a in alerts or []:
         s = alert_signal(a, w, facility)
@@ -334,7 +351,8 @@ def evaluate(*, alerts, forecast, gauge, outage, facility_status, facility: dict
         "confidence": conf, "confidence_reason": conf_reason,
         "what_would_change": what_would_change(level, sigs, gauge, w, building_profile),
         "window": {"date": w["date"], "day": w["day"], "start": w["start"].isoformat(), "end": w["end"].isoformat(),
-                   "now_phase": w["now_phase"], "is_today": w["is_today"], "skipped": w["skipped"]},
+                   "now_phase": w["now_phase"], "is_today": w["is_today"], "skipped": w["skipped"],
+                   "chosen": w.get("chosen", False), "closed": w.get("closed")},
         "options": [{"key": k, "label": v, "recommended": k == b_posture} for k, v in POSTURE_LABELS.items()],
         "opm_basis": OPM_BASIS,
         "last_posture": last_posture,

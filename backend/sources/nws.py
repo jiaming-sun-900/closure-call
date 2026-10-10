@@ -48,6 +48,7 @@ def get_point(lat: float, lon: float) -> dict:
     p = data["properties"]
     return {
         "forecast_hourly_url": p["forecastHourly"],
+        "forecast_url": p["forecast"],
         "office": p.get("cwa"),
         "county": p.get("county"),
         "zone": p.get("forecastZone"),
@@ -132,8 +133,20 @@ def get_hourly_forecast(lat: float, lon: float, hours: int = 48) -> dict:
             "wind_mph": max(speeds) if speeds else 0,
             "precip_pct": (p.get("probabilityOfPrecipitation") or {}).get("value") or 0,
             "short": p.get("shortForecast", ""),
+            "temp_f": p.get("temperature"),
+            "wind_dir": p.get("windDirection"),
         })
     return {"periods": periods, "source": f"NWS hourly forecast ({pt['office']})", "fetched_at": fetched_at}
+
+
+def get_daily_forecast(lat: float, lon: float) -> dict:
+    """NWS 7-day forecast in 12-hour periods (day / night)."""
+    pt = get_point(lat, lon)
+    data, fetched_at = get_json(pt["forecast_url"], ttl=900)
+    periods = [{"start": p["startTime"], "name": p["name"], "is_day": p["isDaytime"], "temp_f": p["temperature"],
+                "short": p["shortForecast"], "precip_pct": (p.get("probabilityOfPrecipitation") or {}).get("value") or 0,
+                "wind": p.get("windSpeed")} for p in data["properties"]["periods"]]
+    return {"periods": periods, "source": f"NWS 7-day forecast ({pt['office']})", "fetched_at": fetched_at}
 
 
 __all__ = ["SourceError", "get_active_alerts", "get_alert_history", "alerts_active_at",

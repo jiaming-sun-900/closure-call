@@ -18,6 +18,7 @@ from fastapi.responses import StreamingResponse
 import agent
 import records
 import rules
+import situation
 import whatif
 
 DATA = Path(__file__).parent / "data"
@@ -86,14 +87,21 @@ def assess(body: AssessIn):
     return a
 
 
+@app.get("/situation")
+def get_situation():
+    return situation.build(load_facility())
+
+
 @app.get("/assess/stream")
-def assess_stream(simulate: str | None = None):
+def assess_stream(simulate: str | None = None, date: str | None = None):
     """Server-sent events: one event per tool start/finish, then the full assessment."""
     q: queue.Queue = queue.Queue()
 
     def work():
         try:
-            a = agent.assess(load_facility(), simulate=simulate, on_event=q.put)
+            if date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+                raise ValueError("bad date")
+            a = agent.assess(load_facility(), simulate=simulate, on_event=q.put, target_date=date)
             _save_assessment(a)
             q.put({"type": "result", "assessment": a})
         except Exception as e:  # never leave the client hanging

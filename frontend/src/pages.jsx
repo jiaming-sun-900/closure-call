@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
-import { SignalList } from './analyze'
+import { SignalList } from './flow'
 import { POSTURE, agencyAction, clean, fmt } from './lib'
 
 /* ---------- ✅ Decide ---------- */
 export function Decide({ a, chosen, setChosen, go }) {
-  if (!a) return <div className="page start fade"><h2 className="page-h">✅ Make the call</h2><p className="quiet">Run an analysis first.</p><button className="btn green huge" onClick={() => go('analyze')}>🔍 Start analysis</button></div>
+  if (!a) return <div className="page start fade"><h2 className="page-h">✅ Make the call</h2><p className="quiet">Run an analysis first.</p><button className="btn green huge" onClick={() => go('start')}>🚀 Start analysis</button></div>
   return <DecideInner a={a} chosen={chosen} setChosen={setChosen} />
 }
 
@@ -148,6 +148,7 @@ export function Settings({ onSaved }) {
           <li>AI runs only when the data changes</li>
         </ul>
       </section>
+      <ResetFacility />
       <ClearRecords />
     </div>
   )
@@ -169,6 +170,22 @@ function ClearRecords() {
         {step === 1 && <><span className="alert red" style={{ margin: 0 }}>Are you sure? This empties the decision record.</span>
           <button className="btn red-btn" onClick={clear}>Yes, clear</button><button className="btn" onClick={() => setStep(0)}>Cancel</button></>}
       </div>
+      {msg && <div className="alert green">{msg}</div>}
+    </section>
+  )
+}
+
+function ResetFacility() {
+  const [msg, setMsg] = useState(null)
+  const reset = async () => {
+    await api.setStatus({ power: 'ok', water: 'ok', roof: 'ok', roads: 'open', notes: '', updated_by: 'Denise Fontenot' })
+    setMsg('Building check reset: power, water, roof ok, roads open')
+  }
+  return (
+    <section className="card fade settings">
+      <div className="card-h">🏢 Building check</div>
+      <div className="small">Test values (like power out) stay until reset. Re-analyze afterwards.</div>
+      <div className="row" style={{ marginTop: 10 }}><button className="btn green" onClick={reset}>Reset building check to all normal</button></div>
       {msg && <div className="alert green">{msg}</div>}
     </section>
   )

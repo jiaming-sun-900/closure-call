@@ -81,9 +81,11 @@ export function Wind({ mph = 0 }) {
 }
 
 /* 🗺 map: facility pin + NWS alert polygons */
-export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9 }) {
+const RADAR_FRAMES = ['m50m', 'm40m', 'm30m', 'm20m', 'm10m', '']
+export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar = false, wind = null }) {
   const el = useRef(null)
   const map = useRef(null)
+  const [frame, setFrame] = useState(RADAR_FRAMES.length - 1)
   useEffect(() => {
     if (!el.current) return
     if (!map.current) {
@@ -109,7 +111,33 @@ export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9 }) {
     else m.setView([lat, lon], zoom)
     setTimeout(() => m.invalidateSize(), 50)
   }, [lat, lon, alerts, zoom])
-  return <div ref={el} className="map" style={{ height }} />
+  useEffect(() => {
+    if (!radar || !map.current) return
+    // NOAA NEXRAD composite via Iowa Environmental Mesonet tiles (free, no key), last 50 minutes looped
+    const layers = RADAR_FRAMES.map((f) => L.tileLayer(`https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913${f ? '-' + f : ''}/{z}/{x}/{y}.png`,
+      { opacity: 0, zIndex: 5, attribution: 'NEXRAD via IEM' }).addTo(map.current))
+    let i = 0
+    const t = setInterval(() => {
+      layers.forEach((ly, j) => ly.setOpacity(j === i ? 0.6 : 0))
+      setFrame(i)
+      i = (i + 1) % layers.length
+    }, 700)
+    return () => { clearInterval(t); layers.forEach((ly) => ly.remove()) }
+  }, [radar])
+  const dirDeg = { N: 0, NNE: 22, NE: 45, ENE: 67, E: 90, ESE: 112, SE: 135, SSE: 157, S: 180, SSW: 202, SW: 225, WSW: 247, W: 270, WNW: 292, NW: 315, NNW: 337 }
+  return (
+    <div className="map-wrap" style={{ height }}>
+      <div ref={el} className="map" style={{ height }} />
+      {radar && <div className="map-badge">📡 Radar, last 50 min {frame === RADAR_FRAMES.length - 1 ? '(now)' : `(-${(RADAR_FRAMES.length - 1 - frame) * 10} min)`}</div>}
+      {wind && wind.dir && (
+        <div className="map-wind" title={`Wind from the ${wind.dir}`}>
+          <div className="wind-arrow" style={{ transform: `rotate(${(dirDeg[wind.dir] ?? 0) + 180}deg)` }}>➤</div>
+          <div><b>{wind.mph} mph</b><br />from {wind.dir}</div>
+          <div className="wind-streaks" style={{ transform: `rotate(${(dirDeg[wind.dir] ?? 0) + 90}deg)` }}><span /><span /><span /></div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 /* 🚗 roads status */
