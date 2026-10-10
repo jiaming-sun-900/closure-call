@@ -149,11 +149,11 @@ def _role_key(x):
 # ---------------------------------------------------------------- agent
 class RoleDraft(BaseModel):
     key: str = Field(description="Role key exactly as given by draft_notifications, e.g. 'facility', 'agency:FSA', 'executive'")
-    body: str = Field(description="Rewritten message body: short, plain, specific, ≤90 words")
+    body: str = Field(description="Rewritten message body: 3 to 5 short lines, verb-first, ≤60 words")
 
 
 class Briefing(BaseModel):
-    rationale: str = Field(description="One paragraph (≤110 words) a manager can paste into an email")
+    rationale: str = Field(description="One paragraph (≤90 words) a manager can paste into an email")
     drafts: list[RoleDraft]
 
 
@@ -178,8 +178,7 @@ def _model():
         return None
     from strands.models.anthropic import AnthropicModel
     return AnthropicModel(client_args={"api_key": os.environ["ANTHROPIC_API_KEY"]},
-                          model_id=os.getenv("MODEL_ID", "claude-haiku-5-5"), max_tokens=3000,
-                          params={"temperature": 0.2})
+                          model_id=os.getenv("MODEL_ID", "claude-haiku-5-5"), max_tokens=8000)
 
 
 def model_info() -> dict:
@@ -293,7 +292,9 @@ def assess(facility: dict, at: datetime | None = None, simulate: str | None = No
             fut = _pool.submit(_run_agent, ctx, model)
             try:
                 b = fut.result(timeout=AGENT_TIMEOUT_S)
-                briefing = {"rationale": b.rationale, "drafts": {d.key: d.body for d in b.drafts}, "model": model_info()["model_id"]}
+                nodash = lambda t: t.replace(" — ", ", ").replace("—", ", ").replace(" – ", ", ")
+                briefing = {"rationale": nodash(b.rationale), "drafts": {d.key: nodash(d.body) for d in b.drafts},
+                            "model": model_info()["model_id"]}
                 _cache_put(fp, briefing)
                 by = f"Strands agent · {model_info()['model_id']}"
             except FutTimeout:
