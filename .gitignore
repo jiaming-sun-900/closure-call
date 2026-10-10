@@ -7,3 +7,4 @@ __pycache__/
 backend/data/records.jsonl
 .DS_Store
 backend/data/assessments/
+backend/data/agent_cache.json

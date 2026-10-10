@@ -35,6 +35,7 @@ def normalize_alert(feature: dict, fetched_at: str, source: str) -> dict:
         "where": (re.search(r"\* WHERE\.\.\.(.+?)(?:\n\n|\n\*|$)", desc, re.S).group(1).replace("\n", " ").strip()[:120]
                   if "* WHERE..." in desc else p.get("areaDesc", "")[:120]),
         "description": desc[:600],
+        "geometry": feature.get("geometry"),
         "instruction": (p.get("instruction") or "")[:400],
         "source": source,
         "fetched_at": fetched_at,

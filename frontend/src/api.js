@@ -17,5 +17,8 @@ export const api = {
   assess: (body) => req('/assess', { method: 'POST', body }),
   decide: (body) => req('/decision', { method: 'POST', body }),
   records: () => req('/records'),
+  settings: () => req('/settings'),
+  saveKey: (api_key) => req('/settings/key', { method: 'PUT', body: { api_key } }),
+  testKey: () => req('/settings/test', { method: 'POST' }),
   record: (id) => req(`/records/${id}`),
 }

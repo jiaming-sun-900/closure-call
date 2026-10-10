@@ -46,12 +46,15 @@ class Ctx:
         self.done: set[str] = set()
 
     def log(self, tool, t0, summary, ok=True):
-        self.trace.append({"tool": tool, "ms": int((time.time() - t0) * 1000), "summary": summary, "ok": ok})
+        self.trace.append({"tool": tool, "ms": int((time.time() - t0) * 1000), "summary": summary, "ok": ok,
+                           "by": "agent" if getattr(self, "agent_phase", False) else "system"})
         self.done.add(tool)
 
     def _fetch(self, tool, key, fn, summarize):
         t0 = time.time()
         if tool in self.done:
+            if getattr(self, "agent_phase", False):
+                self.log(tool, t0, "returned collected data to agent")
             return getattr(self, key)
         try:
             if self.simulate == f"{key}_down" or (self.simulate == "nws_down" and key == "alerts"):
@@ -167,7 +170,7 @@ Workflow:
 
 Rationale paragraph: lead with the recommendation and operating day, then cite the specific data points (value, threshold crossed
 and by how much, source, time), confidence and why, how agencies differ, and the one change that would alter the recommendation.
-Plain text, no markdown."""
+Plain text, no markdown. Never use em dashes or en dashes; use commas, colons or new lines. Short, verb-first sentences."""
 
 
 def _model():
@@ -175,13 +178,13 @@ def _model():
         return None
     from strands.models.anthropic import AnthropicModel
     return AnthropicModel(client_args={"api_key": os.environ["ANTHROPIC_API_KEY"]},
-                          model_id=os.getenv("MODEL_ID", "claude-sonnet-5-5"), max_tokens=3000,
+                          model_id=os.getenv("MODEL_ID", "claude-haiku-5-5"), max_tokens=3000,
                           params={"temperature": 0.2})
 
 
 def model_info() -> dict:
     return {"provider": "anthropic" if os.getenv("ANTHROPIC_API_KEY") else None,
-            "model_id": os.getenv("MODEL_ID", "claude-sonnet-5-5") if os.getenv("ANTHROPIC_API_KEY") else None}
+            "model_id": os.getenv("MODEL_ID", "claude-haiku-5-5") if os.getenv("ANTHROPIC_API_KEY") else None}
 
 
 def _run_agent(ctx: Ctx, model) -> Briefing:
@@ -215,50 +218,95 @@ def _run_agent(ctx: Ctx, model) -> Briefing:
 # ---------------------------------------------------------------- templates (fallback)
 def template_rationale(r: dict, pkg: dict) -> str:
     w = r["window"]
-    day = f"{w['day']} {w['date']}"
-    skipped = f" — {w['skipped'][0].split(': ')[1].replace(' (federal holiday)', '')} skipped" if w["skipped"] else ""
+    day = {"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday", "Fri": "Friday"}.get(w["day"], w["day"])
     if r["recommended"] is None:
-        return (f"NWS weather data could not be retrieved, so hazards for {day} cannot be ruled out. Closure Call will not "
-                f"recommend Open; confidence is LOW. Decide manually and re-run when data returns.")
-    ag = "; ".join(f"{a['code']}: {a['label']}" + (f", field work {a['field_work']}" if a["field_work"] else "") for a in r["agencies"])
+        return f"Weather data from NWS is unavailable, so hazards for {day} cannot be ruled out. Please decide manually."
+    lbl = rules.POSTURE_LABELS[r["recommended"]].lower()
+    ag = " ".join(f"{a['code']}: {a['label'].lower()}" + (f", field work {a['field_work']}." if a["field_work"] else ".") for a in r["agencies"])
     if not r["deciding"]:
-        return (f"Recommendation for {day}{skipped}: {r['recommended_label']}. No input crossed a threshold — NWS alerts, river stage, "
-                f"Entergy outages and roads are all below action levels (confidence {r['confidence']}). Agencies: {ag}.")
+        return f"For {day}, the building can stay {lbl}. No weather, river, power or road reading crossed a threshold. {ag}"
     s = r["deciding"][0]
-    return (f"Recommendation for {day}{skipped}: building {r['recommended_label']}. Driver: {s['title']} — {s['observed']}; "
-            f"threshold {s['threshold']}, exceeded by {s['exceed_by']} ({s['source']}, {s['at']}). Hazard level {r['level']}/4 "
-            f"({r['level_label']}), confidence {r['confidence']} ({r['confidence_reason']}). Agencies differ by risk tolerance — {ag}. "
-            f"Availability {pkg['availability']['day']}: {pkg['availability']['total']['on_site']} on site, "
-            f"{pkg['availability']['total']['telework']} telework, {pkg['availability']['total']['unavailable']} unavailable. "
-            f"What would change this: {r['what_would_change'][0] if r['what_would_change'] else 'a new Warning for the parish'}")
+    t = pkg["availability"]["total"]
+    return (f"For {day}, we recommend the building stay {lbl}. The main driver is the {s['title'].lower()} "
+            f"({s['observed'].split(' (')[0]}), which reaches hazard level {r['level']} of 4. "
+            f"Agencies react differently because their risk tolerance differs. {ag} "
+            f"{t['on_site']} people can work on site and {t['telework']} remotely. "
+            f"{r['what_would_change'][0] if r['what_would_change'] else ''}").replace(" — ", ", ").replace("—", ",")
+
+
+CACHE_PATH = DATA / "agent_cache.json"
+
+
+def _fingerprint(r: dict, pkg: dict) -> str:
+    """Hash of everything the agent's words depend on. Same decision inputs → reuse the cached briefing (saves API cost)."""
+    import hashlib
+    core = {
+        "rec": r["recommended"], "level": r["level"], "conf": r["confidence"], "day": r["window"]["date"],
+        "agencies": [(a["code"], a["posture"], a["field_work"]) for a in r["agencies"]],
+        "signals": [(s["title"], s["level"], s["observed"], s["exceed_by"]) for s in r["signals"]],
+        "change": r["what_would_change"], "avail": pkg["availability"],
+        "notify": [(e["id"], e["notify"], e["reason"]) for e in pkg["employees"]],
+        "model": model_info()["model_id"],
+    }
+    return hashlib.sha256(json.dumps(core, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+
+def _cache_get(fp: str) -> dict | None:
+    try:
+        return json.loads(CACHE_PATH.read_text()).get(fp)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
+def _cache_put(fp: str, briefing: dict):
+    try:
+        cache = json.loads(CACHE_PATH.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        cache = {}
+    cache[fp] = briefing
+    CACHE_PATH.write_text(json.dumps(cache, indent=1))
+
+
+def _redact(text: str) -> str:
+    key = os.getenv("ANTHROPIC_API_KEY")
+    return text.replace(key, "[redacted]") if key else text
 
 
 def assess(facility: dict, at: datetime | None = None, simulate: str | None = None, use_agent: bool = True) -> dict:
     at = at or datetime.now(timezone.utc)
     ctx = Ctx(facility, at, simulate)
-    model = _model() if use_agent else None
-    briefing, agent_error, by = None, None, "template"
     t0 = time.time()
-    if model is not None:
-        fut = _pool.submit(_run_agent, ctx, model)
-        try:
-            briefing = fut.result(timeout=AGENT_TIMEOUT_S)
-            by = f"Strands agent · {model_info()['model_id']}"
-        except FutTimeout:
-            agent_error = f"Agent timed out after {AGENT_TIMEOUT_S:.0f}s — template used"
-        except Exception as e:
-            agent_error = f"Agent error ({type(e).__name__}: {e})"[:300]
+    # 1. Deterministic pass: fetch every source, run the rules, build the notification package
     for step in STEPS:
-        if step not in ctx.done:
-            getattr(ctx, step)()
+        getattr(ctx, step)()
+    fp = _fingerprint(ctx.rules, ctx.package)
+    briefing, agent_error, by, cached = None, None, "template", False
+    # 2. Agent pass only when the decision inputs changed since the last call
+    model = _model() if use_agent else None
+    if model is not None:
+        hit = _cache_get(fp)
+        if hit:
+            briefing, by, cached = hit, f"Strands agent · {hit.get('model')} (cached)", True
+            ctx.trace.append({"tool": "agent_cache", "ms": 0, "summary": f"Inputs unchanged ({fp}), reused earlier agent briefing", "ok": True})
+        else:
+            ctx.agent_phase = True
+            fut = _pool.submit(_run_agent, ctx, model)
+            try:
+                b = fut.result(timeout=AGENT_TIMEOUT_S)
+                briefing = {"rationale": b.rationale, "drafts": {d.key: d.body for d in b.drafts}, "model": model_info()["model_id"]}
+                _cache_put(fp, briefing)
+                by = f"Strands agent · {model_info()['model_id']}"
+            except FutTimeout:
+                agent_error = f"Agent timed out after {AGENT_TIMEOUT_S:.0f}s, template used"
+            except Exception as e:
+                agent_error = _redact(f"Agent error ({type(e).__name__}: {e})")[:300]
     pkg, r = ctx.package, ctx.rules
     if briefing:
-        drafts = {d.key: d.body for d in briefing.drafts}
         for role in pkg["roles"]:
             role["template_body"] = role["body"]
-            role["body"] = drafts.get(_role_key(role), role["body"])
-            role["written_by"] = "agent" if _role_key(role) in drafts else "template"
-        rationale = briefing.rationale
+            role["body"] = briefing["drafts"].get(_role_key(role), role["body"])
+            role["written_by"] = "agent" if _role_key(role) in briefing["drafts"] else "template"
+        rationale = briefing["rationale"]
     else:
         rationale = template_rationale(r, pkg)
         for role in pkg["roles"]:
@@ -279,4 +327,6 @@ def assess(facility: dict, at: datetime | None = None, simulate: str | None = No
         "rationale_by": by,
         "agent_error": agent_error,
         "trace": ctx.trace,
+        "fingerprint": fp,
+        "agent_cached": cached,
     }

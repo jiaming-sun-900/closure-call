@@ -3,7 +3,10 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+import re
+
+import httpx
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -130,3 +133,72 @@ def get_record(record_id: str):
         if r["record_id"] == record_id:
             return r
     raise HTTPException(404, "record not found")
+
+
+# ---------------------------------------------------------------- settings (localhost only)
+# The API key lives only in .env / process env. It is never written to records, evidence snapshots or logs.
+# For a public deployment set ALLOW_KEY_UI=0 and provide ANTHROPIC_API_KEY as a server environment variable.
+ENV_PATH = Path(__file__).parent.parent / ".env"
+
+
+def _local_only(request: Request):
+    if os.getenv("ALLOW_KEY_UI", "1") == "0" or request.client.host not in ("127.0.0.1", "::1", "localhost"):
+        raise HTTPException(403, "Settings are only available on localhost")
+
+
+def _write_env(updates: dict):
+    lines = ENV_PATH.read_text().splitlines() if ENV_PATH.exists() else []
+    keys = set(updates)
+    lines = [l for l in lines if l.split("=", 1)[0].strip() not in keys]
+    lines += [f"{k}={v}" for k, v in updates.items()]
+    ENV_PATH.write_text("\n".join(lines) + "\n")
+    ENV_PATH.chmod(0o600)
+    os.environ.update(updates)
+
+
+def _models(key: str) -> list[dict]:
+    r = httpx.get("https://api.anthropic.com/v1/models", params={"limit": 100}, timeout=10,
+                  headers={"x-api-key": key, "anthropic-version": "2023-06-01"})
+    if r.status_code != 200:
+        raise HTTPException(400, f"Anthropic rejected the key (HTTP {r.status_code})")
+    return r.json().get("data", [])
+
+
+def _latest_haiku(models: list[dict]) -> str | None:
+    haikus = [m for m in models if "haiku" in m["id"]]
+    haikus.sort(key=lambda m: m.get("created_at", ""), reverse=True)
+    return haikus[0]["id"] if haikus else None
+
+
+@app.get("/settings")
+def get_settings(request: Request):
+    _local_only(request)
+    key = os.getenv("ANTHROPIC_API_KEY", "")
+    return {"key_set": bool(key), "key_last4": key[-4:] if key else None, "model_id": os.getenv("MODEL_ID")}
+
+
+class KeyIn(BaseModel):
+    api_key: str
+
+
+@app.put("/settings/key")
+def set_key(body: KeyIn, request: Request):
+    _local_only(request)
+    key = body.api_key.strip()
+    if not re.fullmatch(r"sk-ant-[A-Za-z0-9_\-]{20,}", key):
+        raise HTTPException(400, "That does not look like an Anthropic API key")
+    model = _latest_haiku(_models(key))  # validates the key and picks the newest Haiku
+    _write_env({"ANTHROPIC_API_KEY": key, **({"MODEL_ID": model} if model else {})})
+    return {"key_set": True, "key_last4": key[-4:], "model_id": os.getenv("MODEL_ID")}
+
+
+@app.post("/settings/test")
+def test_key(request: Request):
+    _local_only(request)
+    key = os.getenv("ANTHROPIC_API_KEY")
+    if not key:
+        raise HTTPException(400, "No key saved yet")
+    models = _models(key)
+    model = os.getenv("MODEL_ID")
+    return {"ok": True, "model_id": model, "model_available": any(m["id"] == model for m in models),
+            "latest_haiku": _latest_haiku(models)}
