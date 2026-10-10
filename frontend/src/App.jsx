@@ -53,7 +53,7 @@ export default function App() {
     <div className="shell">
       <aside className="side">
         <div className="logo">
-          <Leaf level={a?.rules.level ?? 0} size={44} />
+          <Leaf level={0} size={44} />
           <div>
             <div className="logo-t">Closure Call</div>
             <div className="logo-s">USDA Lake Charles</div>
@@ -80,7 +80,7 @@ export default function App() {
       <main className={`content ${loading && a ? 'busy' : ''}`}>
         {error && <div className="alert red">⚠️ {error}</div>}
         {page === 'records' ? <Records /> : page === 'settings' ? <Settings onSaved={() => run()} /> : !a || !facility ? (
-          <div className="loading"><Leaf level={1} size={110} /><p>Checking the weather for Lake Charles…</p></div>
+          <div className="loading"><Leaf level={0} size={110} /><p>Checking the weather for Lake Charles…</p></div>
         ) : (
           <div key={page + a.id}>
             {page === 'overview' && <Overview a={a} facility={facility} go={go} />}

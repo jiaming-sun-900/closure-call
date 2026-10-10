@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-USER_AGENT = "(ClosureCall HackMidwest 2026, jiaming.s@wustl.edu)"
+USER_AGENT = "(ClosureCall, Hack Midwest 2026 demo; github.com/jiaming-sun-900/closure-call)"
 _client = httpx.Client(timeout=8.0, follow_redirects=True, headers={"User-Agent": USER_AGENT, "Accept": "application/geo+json, application/json"})
 _cache: dict[str, tuple[float, dict]] = {}
 

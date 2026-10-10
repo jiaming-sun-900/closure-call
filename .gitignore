@@ -8,3 +8,6 @@ backend/data/records.jsonl
 .DS_Store
 backend/data/assessments/
 backend/data/agent_cache.json
+convo.rtf
+hack-midwest-brief.md
+*.rtf

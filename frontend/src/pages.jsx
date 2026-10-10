@@ -74,7 +74,7 @@ export function Overview({ a, facility, go }) {
   return (
     <div className="page">
       <section className="hero fade">
-        <Leaf level={r.level} size={96} />
+        <Leaf level={0} size={96} />
         <div className="hero-text">
           <div className="hero-date">{dateLong(r)}{r.window.skipped.length ? ', next workday after Columbus Day' : ''}</div>
           <h1>{oneLiner(r)}</h1>
