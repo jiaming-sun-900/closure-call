@@ -140,7 +140,7 @@ class Ctx:
                  ", ".join(f"{a['code']} {a['posture']}" for a in r["agencies"]))
         return {k: r[k] for k in ("headline", "recommended", "recommended_label", "recommended_why", "level", "level_label",
                                   "confidence", "confidence_reason", "what_would_change")} | {
-            "operating_day": f"{r['window']['day']} {r['window']['date']}", "skipped_days": r["window"]["skipped"],
+            "operating_day": f"{r['window']['day']} {r['window']['date']}",
             "agencies": [{k: a[k] for k in ("code", "label", "why", "field_work", "tolerance")} for a in r["agencies"]],
             "signals": [{k: s[k] for k in ("title", "level", "observed", "threshold", "exceed_by", "basis", "source", "at")} for s in r["signals"]]}
 
@@ -183,7 +183,7 @@ Workflow:
 
 Rationale paragraph: lead with the recommendation and operating day, then cite the specific data points (value, threshold crossed
 and by how much, source, time), confidence and why, how agencies differ, and the one change that would alter the recommendation.
-Plain text, no markdown. Never use em dashes or en dashes; use commas, colons or new lines. Short, verb-first sentences."""
+Plain text, no markdown. Never use em dashes or en dashes; use commas, colons or new lines. Do not mention holidays, weekends or why a day was chosen; just name the operating day. Short, verb-first sentences."""
 
 
 def _model():

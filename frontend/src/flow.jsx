@@ -4,7 +4,7 @@ import Leaf from './Leaf'
 import { AlertMap, LevelScale, OutageGauge, RoadStatus, WaterGauge, Wind } from './charts'
 import {
   AGENCY_FULL, AGENCY_NAME, CHANNEL, KIND_EMOJI, LEVEL, POSTURE, STATUS, agencyAction, agencyTone, agencyWord, ago, clean,
-  dayLong, fmt, greeting, levelTone, oneLiner, personAction,
+  dayLong, fmt, levelTone, oneLiner, personAction,
 } from './lib'
 
 const FACILITY = 'USDA Lake Charles Service Center'
@@ -67,11 +67,10 @@ function FacilityTitle({ small }) {
   )
 }
 function DateLines({ asOf, dayIso, skipped, live = true }) {
-  const skipNote = skipped?.length ? `; ${skipped.map((s) => `${s.split(' ')[0]} is ${s.split(': ')[1].replace(' (federal holiday)', '')}`).join(', ')}` : ''
   return (
     <div className="date-lines">
       <div>🕒 <b>Data updated:</b> {ago(asOf)}{live ? ' (live)' : ''}</div>
-      {dayIso && <div>📅 <b>Decision for:</b> {dayLong(dayIso)} (next workday{skipNote})</div>}
+      {dayIso && <div>📅 <b>Decision for:</b> {dayLong(dayIso)}</div>}
     </div>
   )
 }
@@ -91,13 +90,12 @@ export function Outlook({ days, selected, onPick, busy }) {
               <div className="day-w">{d.weekday}</div>
               <div className="day-d">{d.label}</div>
               <div className="day-e">{d.emoji}</div>
-              {d.closed ? <div className="day-closed">Office closed<br /><span>{d.closed}</span></div> : (
+              {d.closed ? <div className="day-closed">Office closed</div> : (
                 <>
                   <div className="day-lv">Hazard {d.level}</div>
                   <div className="day-c">Confidence {d.confidence.toLowerCase()}</div>
                 </>
               )}
-              {d.is_next_workday && <div className="day-next">Next workday</div>}
             </button>
           )
         })}
@@ -118,14 +116,13 @@ export function StartPage({ situation, onStart, onAsk, selected, setSelected }) 
     <div className="page startpage fade">
       <div className="hello">
         <div className="hello-l">
-          <div className="greet"><Leaf size={36} /> {greeting()}</div>
           <FacilityTitle />
           {s && <DateLines asOf={s.as_of} dayIso={selected || s.next_workday} skipped={selected && selected !== s.next_workday ? [] : s.skipped} />}
         </div>
       </div>
 
       <form className="askbox" onSubmit={(e) => { e.preventDefault(); q.trim() ? onAsk(q.trim()) : onStart() }}>
-        <input placeholder="Ask anything, for example: Should FSA open on Tuesday if the river keeps rising?" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input placeholder="Start analysis right now or ask anything" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className="btn green big" type="submit">🚀 Start analysis</button>
       </form>
 
