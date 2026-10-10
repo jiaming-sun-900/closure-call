@@ -10,9 +10,15 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import queue
+import threading
+
+from fastapi.responses import StreamingResponse
+
 import agent
 import records
 import rules
+import whatif
 
 DATA = Path(__file__).parent / "data"
 app = FastAPI(title="Closure Call")
@@ -78,6 +84,45 @@ def assess(body: AssessIn):
     a = agent.assess(load_facility(), simulate=body.simulate, use_agent=body.use_agent)
     _save_assessment(a)
     return a
+
+
+@app.get("/assess/stream")
+def assess_stream(simulate: str | None = None):
+    """Server-sent events: one event per tool start/finish, then the full assessment."""
+    q: queue.Queue = queue.Queue()
+
+    def work():
+        try:
+            a = agent.assess(load_facility(), simulate=simulate, on_event=q.put)
+            _save_assessment(a)
+            q.put({"type": "result", "assessment": a})
+        except Exception as e:  # never leave the client hanging
+            q.put({"type": "error", "message": f"{type(e).__name__}: {e}"[:200]})
+        q.put(None)
+
+    threading.Thread(target=work, daemon=True).start()
+
+    def gen():
+        while (ev := q.get()) is not None:
+            yield f"data: {json.dumps(ev, default=str)}\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+class AskIn(BaseModel):
+    assessment_id: str
+    question: str
+
+
+@app.post("/ask")
+def ask(body: AskIn):
+    a = _load_assessment(body.assessment_id)
+    if not a:
+        raise HTTPException(404, "Run an analysis first")
+    q = body.question.strip()
+    if not q or len(q) > 300:
+        raise HTTPException(400, "Ask a short question")
+    return whatif.ask(a, load_facility(), q)
 
 
 class DecisionIn(BaseModel):
@@ -202,3 +247,19 @@ def test_key(request: Request):
     model = os.getenv("MODEL_ID")
     return {"ok": True, "model_id": model, "model_available": any(m["id"] == model for m in models),
             "latest_haiku": _latest_haiku(models)}
+
+
+class ClearIn(BaseModel):
+    confirm: str
+
+
+@app.post("/settings/clear-records")
+def clear_records(body: ClearIn, request: Request):
+    """Testing only: archives (never silently deletes) the record file. Not exposed on the records page."""
+    _local_only(request)
+    if body.confirm != "CLEAR":
+        raise HTTPException(400, "Type CLEAR to confirm")
+    n = len(records.all_records())
+    if records.PATH.exists():
+        records.PATH.rename(records.PATH.with_name(f"records.cleared-{datetime.now():%Y%m%d-%H%M%S}.jsonl"))
+    return {"cleared": n}

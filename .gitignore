@@ -11,3 +11,5 @@ backend/data/agent_cache.json
 convo.rtf
 hack-midwest-brief.md
 *.rtf
+backend/data/whatif_cache.json
+backend/data/records.cleared-*.jsonl

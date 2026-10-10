@@ -37,21 +37,29 @@ def load_facility_status() -> dict:
 class Ctx:
     """Per-assessment state shared by the tools."""
 
-    def __init__(self, facility: dict, at: datetime, simulate: str | None):
+    def __init__(self, facility: dict, at: datetime, simulate: str | None, on_event=None):
         self.facility, self.at, self.simulate = facility, at, simulate
+        self.on_event = on_event or (lambda e: None)
         self.alerts = self.forecast = self.gauge = self.outage = self.roads = self.fstatus = None
         self.rules = self.package = None
         self.status: dict[str, str] = {}
         self.trace: list[dict] = []
         self.done: set[str] = set()
 
+    def start(self, tool):
+        self.on_event({"type": "step", "tool": tool, "status": "running",
+                       "by": "agent" if getattr(self, "agent_phase", False) else "system"})
+
     def log(self, tool, t0, summary, ok=True):
-        self.trace.append({"tool": tool, "ms": int((time.time() - t0) * 1000), "summary": summary, "ok": ok,
-                           "by": "agent" if getattr(self, "agent_phase", False) else "system"})
+        entry = {"tool": tool, "ms": int((time.time() - t0) * 1000), "summary": summary, "ok": ok,
+                 "by": "agent" if getattr(self, "agent_phase", False) else "system"}
+        self.trace.append(entry)
         self.done.add(tool)
+        self.on_event({"type": "step", "status": "done" if ok else "error", **entry})
 
     def _fetch(self, tool, key, fn, summarize):
         t0 = time.time()
+        self.start(tool)
         if tool in self.done:
             if getattr(self, "agent_phase", False):
                 self.log(tool, t0, "returned collected data to agent")
@@ -102,6 +110,7 @@ class Ctx:
 
     def get_facility_status(self):
         t0 = time.time()
+        self.start("get_facility_status")
         self.fstatus = load_facility_status()
         self.status["facility"] = "ok"
         s = self.fstatus
@@ -110,6 +119,7 @@ class Ctx:
 
     def get_roster(self):
         t0 = time.time()
+        self.start("get_roster")
         roster = notify.load_roster()
         self.log("get_roster", t0, f"{len(roster)} employees: " + ", ".join(
             f"{a} {sum(e['agency'] == a for e in roster)}" for a in self.facility["agencies"]))
@@ -117,6 +127,7 @@ class Ctx:
 
     def evaluate_rules(self):
         t0 = time.time()
+        self.start("evaluate_rules")
         for step in STEPS[:6]:
             if step not in self.done:
                 getattr(self, step)()
@@ -134,6 +145,7 @@ class Ctx:
 
     def draft_notifications(self):
         t0 = time.time()
+        self.start("draft_notifications")
         if self.rules is None:
             self.evaluate_rules()
         self.package = notify.build_package(self.rules, self.facility)
@@ -271,12 +283,15 @@ def _redact(text: str) -> str:
     return text.replace(key, "[redacted]") if key else text
 
 
-def assess(facility: dict, at: datetime | None = None, simulate: str | None = None, use_agent: bool = True) -> dict:
+def assess(facility: dict, at: datetime | None = None, simulate: str | None = None, use_agent: bool = True,
+           on_event=None) -> dict:
     at = at or datetime.now(timezone.utc)
-    ctx = Ctx(facility, at, simulate)
+    ctx = Ctx(facility, at, simulate, on_event)
     t0 = time.time()
-    # 1. Deterministic pass: fetch every source, run the rules, build the notification package
-    for step in STEPS:
+    # 1. Deterministic pass: fetch every source in parallel, run the rules, build the notification package
+    with ThreadPoolExecutor(max_workers=7) as ex:
+        list(ex.map(lambda step: getattr(ctx, step)(), STEPS[:7]))
+    for step in STEPS[7:]:
         getattr(ctx, step)()
     fp = _fingerprint(ctx.rules, ctx.package)
     briefing, agent_error, by, cached = None, None, "template", False
@@ -284,9 +299,11 @@ def assess(facility: dict, at: datetime | None = None, simulate: str | None = No
     model = _model() if use_agent else None
     if model is not None:
         hit = _cache_get(fp)
+        ctx.start("agent_write")
+        ta = time.time()
         if hit:
             briefing, by, cached = hit, f"Strands agent · {hit.get('model')} (cached)", True
-            ctx.trace.append({"tool": "agent_cache", "ms": 0, "summary": f"Inputs unchanged ({fp}), reused earlier agent briefing", "ok": True})
+            ctx.log("agent_write", ta, "Inputs unchanged, reused the agent's earlier briefing")
         else:
             ctx.agent_phase = True
             fut = _pool.submit(_run_agent, ctx, model)
@@ -297,10 +314,15 @@ def assess(facility: dict, at: datetime | None = None, simulate: str | None = No
                             "model": model_info()["model_id"]}
                 _cache_put(fp, briefing)
                 by = f"Strands agent · {model_info()['model_id']}"
+                ctx.agent_phase = False
+                ctx.log("agent_write", ta, "Rationale and 6 role drafts written")
             except FutTimeout:
                 agent_error = f"Agent timed out after {AGENT_TIMEOUT_S:.0f}s, template used"
             except Exception as e:
                 agent_error = _redact(f"Agent error ({type(e).__name__}: {e})")[:300]
+            if agent_error:
+                ctx.agent_phase = False
+                ctx.log("agent_write", ta, "Agent unavailable, template text used", ok=False)
     pkg, r = ctx.package, ctx.rules
     if briefing:
         for role in pkg["roles"]:

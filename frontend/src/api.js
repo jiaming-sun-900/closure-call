@@ -11,6 +11,17 @@ async function req(path, opts = {}) {
   return data
 }
 
+export const streamAssess = (simulate, onEvent) => {
+  const es = new EventSource(BASE + '/assess/stream' + (simulate ? `?simulate=${simulate}` : ''))
+  es.onmessage = (m) => {
+    const ev = JSON.parse(m.data)
+    onEvent(ev)
+    if (ev.type === 'result' || ev.type === 'error') es.close()
+  }
+  es.onerror = () => { es.close(); onEvent({ type: 'error', message: 'Connection to the server was lost' }) }
+  return () => es.close()
+}
+
 export const api = {
   facility: () => req('/facility'),
   setStatus: (body) => req('/facility/status', { method: 'PUT', body }),
@@ -21,4 +32,6 @@ export const api = {
   saveKey: (api_key) => req('/settings/key', { method: 'PUT', body: { api_key } }),
   testKey: () => req('/settings/test', { method: 'POST' }),
   record: (id) => req(`/records/${id}`),
+  ask: (assessment_id, question) => req('/ask', { method: 'POST', body: { assessment_id, question } }),
+  clearRecords: () => req('/settings/clear-records', { method: 'POST', body: { confirm: 'CLEAR' } }),
 }
