@@ -105,49 +105,55 @@ export function Outlook({ days, selected, onPick, busy }) {
 }
 
 /* ------------------------------------------------------------------ start page */
-export function StartPage({ situation, onStart, onAsk, selected, setSelected }) {
-  const [q, setQ] = useState('')
+export function StartPage({ situation, onStart, selected, setSelected }) {
   const s = situation
-  const lv = (n) => levelTone(n)
   const riverTone = !s?.river ? 'grey' : s.river.stage_ft >= (s.river.flood_stages_ft.moderate || 99) ? 'red' : s.river.stage_ft >= (s.river.flood_stages_ft.minor || 99) ? 'yellow' : 'green'
   const outTone = !s?.outage ? 'grey' : s.outage.pct >= 25 ? 'red' : s.outage.pct >= 3 ? 'yellow' : 'green'
   const windTone = !s?.current ? 'grey' : s.current.wind_mph >= 40 ? 'red' : s.current.wind_mph >= 25 ? 'yellow' : 'green'
+  const liveAlerts = s ? s.alerts.filter((a) => !/Statement/.test(a.event)) : []
   return (
     <div className="page startpage fade">
-      <div className="hello">
-        <div className="hello-l">
-          <FacilityTitle />
-          {s && <DateLines asOf={s.as_of} dayIso={selected || s.next_workday} skipped={selected && selected !== s.next_workday ? [] : s.skipped} />}
+      <header className="product">
+        <div className="product-l">
+          <div className="product-name"><Leaf size={64} /> Closure Call</div>
+          <div className="product-tag">Weather-driven open or close decisions for USDA facilities</div>
+          <div className="facility-line">
+            <FacilityTitle small />
+            {s && <DateLines asOf={s.as_of} dayIso={selected || s.next_workday} />}
+          </div>
         </div>
-      </div>
-
-      <form className="askbox" onSubmit={(e) => { e.preventDefault(); q.trim() ? onAsk(q.trim()) : onStart() }}>
-        <input placeholder="Start analysis right now or ask anything" value={q} onChange={(e) => setQ(e.target.value)} />
-        <button className="btn green big" type="submit">🚀 Start analysis</button>
-      </form>
+        <button className="go-btn" onClick={() => onStart()} aria-label="Start analysis">
+          <span className="go-ring" />
+          <span className="go-face">
+            <span className="go-ic">🚀</span>
+            <span className="go-t">Start analysis</span>
+            <span className="go-s">Get the latest weather update</span>
+          </span>
+        </button>
+      </header>
 
       <section className="live">
         <div className="live-map">
-          <AlertMap lat={30.163142} lon={-93.17974} alerts={s?.alerts || []} height={574} zoom={8} radar wind={s?.current && { dir: s.current.wind_dir, mph: s.current.wind_mph }} />
+          <AlertMap lat={30.163142} lon={-93.17974} alerts={s?.alerts || []} height={380} zoom={8}
+            wind={s?.current && { dir: s.current.wind_dir, mph: s.current.wind_mph }} />
         </div>
         <div className="live-stats">
           <LiveStat icon={s?.current?.emoji || '🌡'} label="Temperature" value={s?.current ? `${s.current.temp_f}°F` : '…'} note={s?.current?.short} tone="blue" />
           <LiveStat icon="💨" label="Wind" value={s?.current ? `${s.current.wind_mph} mph` : '…'} note={s?.current ? `From ${s.current.wind_dir}` : ''} tone={windTone} />
           <LiveStat icon="🌊" label="River" value={s?.river ? `${s.river.stage_ft.toFixed(1)} ft` : '…'} note={s?.river ? `Minor flood at ${s.river.flood_stages_ft.minor} ft` : ''} tone={riverTone} />
           <LiveStat icon="⚡" label="Power outages" value={s?.outage ? s.outage.customers_out.toLocaleString() : '…'} note={s?.outage ? `of ${s.outage.customers_served.toLocaleString()} homes` : ''} tone={outTone} />
-          <LiveStat icon="⚠️" label="NWS alerts" value={s ? s.alerts.filter((a) => !/Statement/.test(a.event)).length : '…'} note={s ? [...new Set(s.alerts.filter((a) => !/Statement/.test(a.event)).map((a) => a.event))].join(', ') || 'None active' : ''} tone={s && s.alerts.some((a) => /Warning/.test(a.event)) ? 'yellow' : 'green'} />
+          <LiveStat wide icon="⚠️" label="NWS alerts" value={s ? liveAlerts.length : '…'} note={s ? [...new Set(liveAlerts.map((a) => a.event))].join(', ') || 'None active' : ''} tone={liveAlerts.some((a) => /Warning/.test(a.event)) ? 'yellow' : 'green'} />
         </div>
       </section>
 
       <Outlook days={s?.outlook} selected={selected || s?.next_workday} onPick={(d) => { setSelected(d); onStart(d) }} />
       <div className="built center">Live NWS, NOAA river, Entergy and LA 511 data · Built with the Strands Agents SDK</div>
-      {void lv}
     </div>
   )
 }
-function LiveStat({ icon, label, value, note, tone }) {
+function LiveStat({ icon, label, value, note, tone, wide }) {
   return (
-    <div className={`livestat ${tone}`}>
+    <div className={`livestat ${tone} ${wide ? 'wide' : ''}`}>
       <div className="ls-l">{icon} {label}</div>
       <div className="ls-v">{value}</div>
       <div className="ls-n">{note}</div>

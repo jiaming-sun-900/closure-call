@@ -71,7 +71,7 @@ export default function App() {
           <Leaf size={44} />
           <div>
             <div className="logo-t">Closure Call</div>
-            <div className="logo-s">USDA weather decisions</div>
+            <div className="logo-s">USDA Weather Decisions</div>
           </div>
         </div>
         <nav className="tabs">
@@ -97,11 +97,11 @@ export default function App() {
         {running ? <Progress sq={sq} dayIso={dayIso || new Date().toISOString().slice(0, 10)} /> : (
           <>
             {page === 'start' && <StartPage situation={situation} selected={selectedDay} setSelected={setSelectedDay}
-              onStart={(d) => start(d)} onAsk={(q) => start(selectedDay, q)} />}
+              onStart={(d) => start(d)} />}
             {page === 'results' && (a ? <ResultsPage a={a} facility={facility || a.facility} situation={situation} busy={!!running}
               onReplay={replay} onReanalyze={() => start(a.rules.window.chosen ? a.rules.window.date : null)}
               onPickDay={(d) => { setSelectedDay(d); start(d) }} onDecide={() => go('decide')}
-              pendingQuestion={pendingQ} clearPending={() => setPendingQ(null)} /> : <StartPage situation={situation} selected={selectedDay} setSelected={setSelectedDay} onStart={(d) => start(d)} onAsk={(q) => start(selectedDay, q)} />)}
+              pendingQuestion={pendingQ} clearPending={() => setPendingQ(null)} /> : <StartPage situation={situation} selected={selectedDay} setSelected={setSelectedDay} onStart={(d) => start(d)} />)}
             {page === 'decide' && <Decide a={a} chosen={chosen} setChosen={setChosen} go={go} />}
             {page === 'records' && <Records />}
             {page === 'settings' && <Settings />}

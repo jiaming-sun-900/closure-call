@@ -128,12 +128,12 @@ export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar 
   return (
     <div className="map-wrap" style={{ height }}>
       <div ref={el} className="map" style={{ height }} />
+      {wind && wind.dir && <WindField deg={(dirDeg[wind.dir] ?? 0) + 180} mph={wind.mph} />}
       {radar && <div className="map-badge">📡 Radar, last 50 min {frame === RADAR_FRAMES.length - 1 ? '(now)' : `(-${(RADAR_FRAMES.length - 1 - frame) * 10} min)`}</div>}
       {wind && wind.dir && (
         <div className="map-wind" title={`Wind from the ${wind.dir}`}>
-          <div className="wind-arrow" style={{ transform: `rotate(${(dirDeg[wind.dir] ?? 0) + 180}deg)` }}>➤</div>
-          <div><b>{wind.mph} mph</b><br />from {wind.dir}</div>
-          <div className="wind-streaks" style={{ transform: `rotate(${(dirDeg[wind.dir] ?? 0) + 90}deg)` }}><span /><span /><span /></div>
+          <div className="wind-arrow" style={{ transform: `rotate(${(dirDeg[wind.dir] ?? 0) + 90}deg)` }}>➤</div>
+          <div><b>{wind.mph} mph</b><span>from the {({ N: 'north', S: 'south', E: 'east', W: 'west' })[wind.dir] || wind.dir}</span></div>
         </div>
       )}
     </div>
@@ -168,5 +168,28 @@ export function LevelScale({ level, th }) {
         )
       })}
     </div>
+  )
+}
+
+/* 💨 wind vector field: a grid of arrows pointing where the wind blows, drifting gently */
+function WindField({ deg, mph }) {
+  const cols = 9, rows = 6
+  const len = Math.min(34, 14 + mph * 0.8)
+  const dur = Math.max(1.2, 4 - mph / 12)
+  return (
+    <svg className="windfield" viewBox="0 0 900 600" preserveAspectRatio="none">
+      {Array.from({ length: rows * cols }).map((_, i) => {
+        const x = (i % cols) * 100 + 50 + (Math.floor(i / cols) % 2 ? 25 : -25)
+        const y = Math.floor(i / cols) * 100 + 50
+        return (
+          <g key={i} transform={`translate(${x} ${y}) rotate(${deg - 90})`}>
+            <g className="wf-arrow" style={{ animationDuration: `${dur}s`, animationDelay: `${(i % 5) * dur / 5}s` }}>
+              <line x1={-len / 2} y1="0" x2={len / 2} y2="0" />
+              <path d={`M${len / 2} 0 l-7 -5 M${len / 2} 0 l-7 5`} />
+            </g>
+          </g>
+        )
+      })}
+    </svg>
   )
 }
