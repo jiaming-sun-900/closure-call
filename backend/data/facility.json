@@ -1,0 +1,95 @@
+{
+  "id": "usda-csc-01",
+  "name": "USDA County Service Center",
+  "agencies": [
+    "FSA",
+    "NRCS",
+    "RD"
+  ],
+  "hours": {
+    "start": "08:00",
+    "end": "16:30"
+  },
+  "operating_days": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri"
+  ],
+  "commute_window_hours": 2,
+  "manager": {
+    "name": "Dana Whitfield",
+    "title": "Facility Manager"
+  },
+  "current_location": "tallahassee",
+  "locations": {
+    "tallahassee": {
+      "label": "Tallahassee, FL",
+      "address": "2741 Capital Circle NE, Tallahassee, FL (fictional)",
+      "lat": 30.4383,
+      "lon": -84.2807,
+      "timezone": "America/New_York",
+      "gauge_lid": "CAPF1",
+      "in_surge_zone": false
+    },
+    "beaumont": {
+      "label": "Beaumont, TX",
+      "address": "1520 Calder Ave, Beaumont, TX (fictional)",
+      "lat": 30.0802,
+      "lon": -94.1266,
+      "timezone": "America/Chicago",
+      "gauge_lid": "JYBT2",
+      "in_surge_zone": false
+    },
+    "panama_city": {
+      "label": "Panama City, FL",
+      "address": "430 W 11th St, Panama City, FL (fictional)",
+      "lat": 30.1588,
+      "lon": -85.6602,
+      "timezone": "America/Chicago",
+      "gauge_lid": "BEBF1",
+      "in_surge_zone": true
+    },
+    "davenport": {
+      "label": "Davenport, IA",
+      "address": "300 W 3rd St, Davenport, IA (fictional)",
+      "lat": 41.5236,
+      "lon": -90.5776,
+      "timezone": "America/Chicago",
+      "gauge_lid": "RCKI2",
+      "in_surge_zone": false
+    }
+  },
+  "replays": {
+    "isaias": {
+      "label": "Hurricane Isaias \u2014 Panama City, Oct 7\u201310 2026",
+      "location": "panama_city",
+      "start": "2026-10-07T12:00:00Z",
+      "end": "2026-10-10T14:00:00Z",
+      "moments": [
+        {
+          "at": "2026-10-07T16:00:00Z",
+          "label": "Hurricane Watch issued"
+        },
+        {
+          "at": "2026-10-08T03:30:00Z",
+          "label": "Upgraded to Hurricane Warning"
+        },
+        {
+          "at": "2026-10-09T17:00:00Z",
+          "label": "Landfall day"
+        },
+        {
+          "at": "2026-10-10T06:30:00Z",
+          "label": "Downgraded to Tropical Storm Warning"
+        },
+        {
+          "at": "2026-10-10T09:30:00Z",
+          "label": "All warnings cancelled"
+        }
+      ],
+      "snapshot": "isaias_panama_city_alerts.json"
+    }
+  }
+}
