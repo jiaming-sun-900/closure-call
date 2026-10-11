@@ -106,16 +106,12 @@ export function Outlook({ days, selected, onPick, busy }) {
 }
 
 /* ------------------------------------------------------------------ start page */
-export function StartPage({ situation, onStart, selected }) {
-  const s = situation
-  const day = selected || s?.next_workday
+export function StartPage({ onStart }) {
   return (
     <div className="page startpage simple fade">
       <div className="sp-center">
         <h1 className="sp-name">{FACILITY}</h1>
-        <div className="sp-day">Decision for {day ? new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '…'}</div>
         <button className="start-btn" onClick={() => onStart()}>Start analysis</button>
-        <div className="start-note">🕒 Data updated {s ? ago(s.as_of) : '…'}</div>
       </div>
     </div>
   )

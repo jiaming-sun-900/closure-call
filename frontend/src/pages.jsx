@@ -112,7 +112,7 @@ function Snapshot({ e }) {
 }
 
 /* ---------- ⚙️ Settings (localhost only) ---------- */
-export function Settings({ onSaved }) {
+export function Settings({ onSaved, simulate, setSimulate }) {
   const [st, setSt] = useState(null)
   const [key, setKey] = useState('')
   const [msg, setMsg] = useState(null)
@@ -149,6 +149,16 @@ export function Settings({ onSaved }) {
         </ul>
       </section>
       <ResetFacility />
+      <section className="card fade settings">
+        <div className="card-h">🧪 Test mode</div>
+        <div className="small">Simulates an NWS outage to show the system never defaults to Open when weather data is missing.</div>
+        <div className="row" style={{ marginTop: 10 }}>
+          <div className="seg">
+            <button className={!simulate ? 'on green' : ''} onClick={() => setSimulate(null)}>Live data</button>
+            <button className={simulate === 'nws_down' ? 'on red' : ''} onClick={() => setSimulate('nws_down')}>Simulate NWS outage</button>
+          </div>
+        </div>
+      </section>
       <ClearRecords />
     </div>
   )
@@ -188,5 +198,21 @@ function ResetFacility() {
       <div className="row" style={{ marginTop: 10 }}><button className="btn green" onClick={reset}>Reset building check to all normal</button></div>
       {msg && <div className="alert green">{msg}</div>}
     </section>
+  )
+}
+
+export function About() {
+  return (
+    <div className="page fade about">
+      <h2 className="page-h">About us</h2>
+      <p className="about-lead">Data-driven weather analysis for USDA facility closure decisions.</p>
+      <ul className="bul">
+        <li>Live NWS, NOAA river, Entergy power and LA 511 road data</li>
+        <li>Deterministic rules set the hazard level</li>
+        <li>An AI agent built with the Strands Agents SDK writes the rationale and notices</li>
+        <li>A human makes the final call, with every decision on record</li>
+      </ul>
+      <p className="small">Built at Hack Midwest 2026 for the USDA Closure Call challenge.</p>
+    </div>
   )
 }

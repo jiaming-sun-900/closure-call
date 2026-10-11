@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api, streamAssess } from './api'
 import Leaf from './Leaf'
 import { Progress, ResultsPage, StartPage, useStepQueue } from './flow'
-import { Decide, Records, Settings } from './pages'
+import { About, Decide, Records, Settings } from './pages'
 import './App.css'
 
 const NAV = [
@@ -11,7 +11,7 @@ const NAV = [
   ['decide', '✅', 'Decide'],
   ['records', '📜', 'Records'],
 ]
-const PAGES = [...NAV.map(([k]) => k), 'settings']
+const PAGES = [...NAV.map(([k]) => k), 'about', 'settings']
 const pageFromHash = () => (PAGES.includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : 'start')
 
 export default function App() {
@@ -79,14 +79,11 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="side-foot">
-          <select value={simulate || ''} onChange={(e) => setSimulate(e.target.value || null)} title="Test scenarios">
-            <option value="">Live data</option>
-            <option value="nws_down">Test: NWS down</option>
-          </select>
-        </div>
+        <nav className="tabs side-bottom">
+          <button className={page === 'about' && !running ? 'on' : ''} onClick={() => go('about')}><span className="nav-ic">🍃</span><span className="nav-l">About us</span></button>
+          <button className={page === 'settings' && !running ? 'on' : ''} onClick={() => go('settings')}><span className="nav-ic">⚙️</span><span className="nav-l">Settings</span></button>
+        </nav>
       </aside>
-      <button className={`gear ${page === 'settings' ? 'on' : ''}`} onClick={() => go('settings')} title="Settings">⚙️</button>
 
       <main className="content">
         {error && <div className="alert red">⚠️ {error}</div>}
@@ -100,7 +97,8 @@ export default function App() {
               pendingQuestion={pendingQ} clearPending={() => setPendingQ(null)} /> : <StartPage situation={situation} selected={selectedDay} setSelected={setSelectedDay} onStart={(d) => start(d)} />)}
             {page === 'decide' && <Decide a={a} chosen={chosen} setChosen={setChosen} go={go} />}
             {page === 'records' && <Records />}
-            {page === 'settings' && <Settings />}
+            {page === 'settings' && <Settings simulate={simulate} setSimulate={setSimulate} />}
+            {page === 'about' && <About />}
           </>
         )}
       </main>

@@ -585,3 +585,14 @@ body, .card, .tile, .block, .tag, .bubble, .draft pre { color: var(--ink); }
 .sp-center .start-btn { padding: 24px 64px; font-size: 28px; border-radius: 20px; }
 .sp-center .start-note { margin-top: 6px; font-size: 18px; }
 @media (max-width: 900px) { .sp-center .sp-name { font-size: 32px; } .sp-day { font-size: 19px; } .sp-center .start-btn { width: 100%; padding: 20px; } }
+
+/* ===== v9 ===== */
+.sp-center .sp-name { color: var(--ink); margin-bottom: 26px; }
+.side-bottom { margin-top: auto; border-top: 2px solid var(--line); padding-top: 10px; }
+.side .side-foot { display: none; }
+.about { max-width: 760px; }
+.about-lead { font-size: 24px; font-weight: 800; margin: 6px 0 16px; }
+.about .bul { font-size: 18px; gap: 8px; }
+@media (max-width: 900px) {
+  .side nav.tabs.side-bottom { display: none; }
+}
