@@ -92,7 +92,7 @@ export default function App() {
               onReanalyze={() => start(a.rules.window.chosen ? a.rules.window.date : null)} onDecide={() => go('decide')}
               onPickDay={(d) => { setSelectedDay(d); start(d) }}
               pendingQuestion={pendingQ} clearPending={() => setPendingQ(null)} /> : <StartPage onStart={() => { setSelectedDay(null); start(null) }} />)}
-            {page === 'decide' && <Decide a={a} chosen={chosen} setChosen={setChosen} go={go} />}
+            {page === 'decide' && <Decide a={a} situation={situation} chosen={chosen} setChosen={setChosen} go={go} />}
             {page === 'records' && <Records />}
             {page === 'settings' && <Settings />}
             {page === 'about' && <About />}

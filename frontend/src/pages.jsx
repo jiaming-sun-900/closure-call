@@ -5,12 +5,12 @@ import Leaf from './Leaf'
 import { POSTURE, agencyAction, clean, dayLong, fmt } from './lib'
 
 /* ---------- Decide ---------- */
-export function Decide({ a, chosen, setChosen, go }) {
+export function Decide({ a, situation, chosen, setChosen, go }) {
   if (!a) return <div className="page start fade"><h2 className="page-h">Make the Call</h2><p className="quiet">Run an analysis first.</p><button className="btn green huge" onClick={() => go('start')}>Start Analysis</button></div>
-  return <DecideInner a={a} chosen={chosen} setChosen={setChosen} go={go} />
+  return <DecideInner a={a} situation={situation} chosen={chosen} setChosen={setChosen} go={go} />
 }
 
-function DecideInner({ a, chosen, setChosen, go }) {
+function DecideInner({ a, situation, chosen, setChosen, go }) {
   const r = a.rules
   const [custom, setCustom] = useState('')
   const [reason, setReason] = useState('')
@@ -30,6 +30,7 @@ function DecideInner({ a, chosen, setChosen, go }) {
   return (
     <div className="page decide-page">
       <h2 className="page-h">Make the Call</h2>
+      <p className="dec-when">{whenNote(r.window, situation?.outlook?.[0])}</p>
       <section className="dec-sec">
         <h3 className="dec-h">1. Building Status for {dayLong(r.window.date)}</h3>
         <div className="radios" role="radiogroup">
@@ -79,6 +80,15 @@ function DecideInner({ a, chosen, setChosen, go }) {
       )}
     </div>
   )
+}
+
+// which day this decision is for, and why it is not today
+function whenNote(w, today) {
+  const day = dayLong(w.date)
+  if (w.is_today) return w.closed ? `Today, ${day}, the office is normally closed (${w.closed.toLowerCase()}). You can still record a decision.` : `You are deciding the building status for today, ${day}.`
+  const t = today ? dayLong(today.date) : 'Today'
+  const why = !today?.closed ? '' : today.closed === 'Office hours over' ? ' Office hours are over for today, so no decision is needed today.' : ` The office is closed today (${today.closed.toLowerCase()}), so no decision is needed today.`
+  return `Today is ${t}.${why} You can decide the building status for ${day}${w.chosen ? ', the day you picked' : ', the next workday'}.`
 }
 
 // the message a manager pastes into an email after deciding

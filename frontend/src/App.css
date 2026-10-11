@@ -773,3 +773,4 @@ button.fc-row:disabled { cursor: wait; }
 /* v24: decision saved popup */
 .success-note { font-size: 17px; font-weight: 700; color: var(--usda); margin: 10px 0 16px; }
 .success-card .center-row { justify-content: center; gap: 10px; }
+.dec-when { font-size: 19px; line-height: 1.5; font-weight: 600; background: var(--usda-l); border-left: 4px solid var(--usda); border-radius: 10px; padding: 14px 18px; margin: 4px 0 8px; }

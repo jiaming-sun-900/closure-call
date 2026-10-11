@@ -290,7 +290,7 @@ export function ResultsPage({ a, situation, onReanalyze, onDecide, onPickDay, pe
               <h3 className="rec-h">Today, {dayLong(todayIso)}</h3>
               {!r.window.is_today && (
                 <ul className="tldr">
-                  <li><b>Office:</b> {todayClosed === 'Already closed today' ? 'closed for the day, office hours are over' : todayClosed ? `closed (${todayClosed.toLowerCase()})` : 'open today'}.{todayClosed ? ' No closure decision needed today.' : ''}</li>
+                  <li><b>Office:</b> {todayClosed === 'Office hours over' ? 'closed for the day, office hours are over' : todayClosed ? `closed (${todayClosed.toLowerCase()})` : 'open today'}.{todayClosed ? ' No closure decision needed today.' : ''}</li>
                   <li><b>Right Now:</b> {live.length ? `active NWS alerts: ${[...new Set(live.map((x) => x.event))].join(', ')}` : 'all clear, no active NWS alerts'}</li>
                 </ul>
               )}
