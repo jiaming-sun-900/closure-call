@@ -82,7 +82,7 @@ export function Wind({ mph = 0 }) {
 
 /* 🗺 map: facility pin + NWS alert polygons */
 const RADAR_FRAMES = ['m50m', 'm40m', 'm30m', 'm20m', 'm10m', '']
-export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar = false, wind = null }) {
+export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar = false, wind = null, labels = false }) {
   const el = useRef(null)
   const map = useRef(null)
   const [frame, setFrame] = useState(RADAR_FRAMES.length - 1)
@@ -101,7 +101,7 @@ export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar 
       const warn = /warning/i.test(a.event)
       const layer = L.geoJSON(a.geometry, {
         style: { color: warn ? '#d64545' : '#d9a21b', weight: 2, fillOpacity: 0.18 },
-      }).bindTooltip(a.event).addTo(m)
+      }).bindTooltip(a.event, labels ? { permanent: true, direction: 'center', className: 'area-label' } : {}).addTo(m)
       shapes.push(layer)
     })
     const icon = L.divIcon({ className: 'pin', html: '<div class="pin-dot">🏢</div>', iconSize: [34, 34], iconAnchor: [17, 17] })
@@ -128,6 +128,14 @@ export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar 
   return (
     <div className="map-wrap" style={{ height }}>
       <div ref={el} className="map" style={{ height }} />
+      {labels && alerts.some((a) => a.geometry) && (
+        <div className="map-legend">
+          {[...new Set(alerts.filter((a) => a.geometry).map((a) => a.event))].map((ev) => (
+            <span key={ev}><i className={/warning/i.test(ev) ? 'sw red' : 'sw yellow'} />{ev} area (NWS)</span>
+          ))}
+          <span><i className="sw arrow">➝</i>Wind direction</span>
+        </div>
+      )}
       {wind && wind.dir && <WindField deg={(dirDeg[wind.dir] ?? 0) + 180} mph={wind.mph} />}
       {radar && <div className="map-badge">📡 Radar, last 50 min {frame === RADAR_FRAMES.length - 1 ? '(now)' : `(-${(RADAR_FRAMES.length - 1 - frame) * 10} min)`}</div>}
       {wind && wind.dir && (

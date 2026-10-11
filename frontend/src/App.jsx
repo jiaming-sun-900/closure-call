@@ -68,11 +68,8 @@ export default function App() {
     <div className="shell">
       <aside className="side">
         <div className="logo" onClick={() => go('start')}>
-          <Leaf size={44} />
-          <div>
-            <div className="logo-t">Closure Call</div>
-            <div className="logo-s">USDA Weather Decisions</div>
-          </div>
+          <Leaf size={64} />
+          <div className="logo-t">Closure Call</div>
         </div>
         <nav className="tabs">
           {NAV.map(([k, ic, label]) => (
@@ -87,7 +84,6 @@ export default function App() {
             <option value="">Live data</option>
             <option value="nws_down">Test: NWS down</option>
           </select>
-          <div className="tiny">Rules decide. AI writes. You choose.</div>
         </div>
       </aside>
       <button className={`gear ${page === 'settings' ? 'on' : ''}`} onClick={() => go('settings')} title="Settings">⚙️</button>
