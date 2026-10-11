@@ -12,21 +12,27 @@ const NAV = [
   ['records', 'Records'],
 ]
 const PAGES = [...NAV.map(([k]) => k), 'about', 'settings']
+// the last analysis survives a page refresh
+const saved = (k) => { try { return JSON.parse(localStorage.getItem('cc:' + k)) } catch { return null } }
+const save = (k, v) => { try { v == null ? localStorage.removeItem('cc:' + k) : localStorage.setItem('cc:' + k, JSON.stringify(v)) } catch { /* storage full or blocked */ } }
 const pageFromHash = () => (PAGES.includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : 'start')
 
 export default function App() {
   const [page, setPage] = useState(pageFromHash())
   const [facility, setFacility] = useState(null)
   const [situation, setSituation] = useState(null)
-  const [a, setA] = useState(null)
+  const [a, setA] = useState(() => saved('assessment'))
   const [error, setError] = useState(null)
   const [simulate, setSimulate] = useState(null)
-  const [chosen, setChosen] = useState(null)
+  const [chosen, setChosen] = useState(() => saved('chosen'))
   const [selectedDay, setSelectedDay] = useState(null)
   const [running, setRunning] = useState(null) // null | 'live' | 'replay'
   const [pendingQ, setPendingQ] = useState(null)
   const sq = useStepQueue()
   const stop = useRef(null)
+
+  useEffect(() => save('assessment', a), [a])
+  useEffect(() => save('chosen', chosen), [chosen])
 
   const loadSituation = () => api.situation().then(setSituation).catch(() => {})
   useEffect(() => {
