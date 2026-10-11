@@ -763,3 +763,9 @@ button.fc-row:disabled { cursor: wait; }
 .about-stack span { padding: 7px 14px; border: 1.5px solid var(--line); border-radius: 999px; background: #fff; font-size: 15px; font-weight: 700; }
 .about-team { text-align: center; color: var(--muted); font-size: 15px; font-weight: 700; margin: 24px 0 0; }
 @media (max-width: 900px) { .about-steps { grid-template-columns: 1fr 1fr; } .about-name { font-size: 34px; } }
+
+/* v23: settings centered */
+.settings-page { max-width: 760px; margin: 0 auto; }
+.settings-page .settings { max-width: none; padding: 24px 26px; margin-top: 18px; }
+.settings.danger { border: 2px solid var(--red); background: #fff6f5; }
+.settings.danger .card-h { color: var(--red); }

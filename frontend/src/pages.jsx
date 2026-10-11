@@ -130,7 +130,7 @@ function Snapshot({ e }) {
 }
 
 /* ---------- Settings (localhost only) ---------- */
-export function Settings({ onSaved, simulate, setSimulate }) {
+export function Settings({ onSaved }) {
   const [st, setSt] = useState(null)
   const [key, setKey] = useState('')
   const [msg, setMsg] = useState(null)
@@ -147,9 +147,8 @@ export function Settings({ onSaved, simulate, setSimulate }) {
     catch (e) { setMsg({ tone: 'red', text: e.message }) } finally { setBusy(false) }
   }
   return (
-    <div className="page">
+    <div className="page settings-page">
       <h2 className="page-h">Settings</h2>
-      <p className="tagline">Local demo only. In production the key comes from the server.</p>
       <section className="card fade settings">
         <div className="card-h">Anthropic API Key</div>
         {st && <div className="row"><span className={`chip ${st.key_set ? 'green' : 'yellow'}`}>{st.key_set ? `Saved, ends in ${st.key_last4}` : 'No key yet'}</span>
@@ -167,16 +166,6 @@ export function Settings({ onSaved, simulate, setSimulate }) {
         </ul>
       </section>
       <ResetFacility />
-      <section className="card fade settings">
-        <div className="card-h">Test Mode</div>
-        <div className="small">Simulates an NWS outage to show the system never defaults to Open when weather data is missing.</div>
-        <div className="row" style={{ marginTop: 10 }}>
-          <div className="seg">
-            <button className={!simulate ? 'on green' : ''} onClick={() => setSimulate(null)}>Live data</button>
-            <button className={simulate === 'nws_down' ? 'on red' : ''} onClick={() => setSimulate('nws_down')}>Simulate NWS outage</button>
-          </div>
-        </div>
-      </section>
       <ClearRecords />
     </div>
   )
@@ -190,11 +179,11 @@ function ClearRecords() {
     catch (e) { setMsg(e.message) }
   }
   return (
-    <section className="card fade settings">
+    <section className="card fade settings danger">
       <div className="card-h">Clear Test Records</div>
       <div className="quiet small">For rehearsals only. Records cannot be deleted from the record page. Cleared records are archived on this computer.</div>
       <div className="row" style={{ marginTop: 10 }}>
-        {step === 0 && <button className="btn" onClick={() => { setStep(1); setMsg(null) }}>Clear test records…</button>}
+        {step === 0 && <button className="btn red-btn" onClick={() => { setStep(1); setMsg(null) }}>Clear Test Records</button>}
         {step === 1 && <><span className="alert red" style={{ margin: 0 }}>Are you sure? This empties the decision record.</span>
           <button className="btn red-btn" onClick={clear}>Yes, Clear</button><button className="btn" onClick={() => setStep(0)}>Cancel</button></>}
       </div>

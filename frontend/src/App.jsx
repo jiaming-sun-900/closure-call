@@ -23,7 +23,6 @@ export default function App() {
   const [situation, setSituation] = useState(null)
   const [a, setA] = useState(() => saved('assessment'))
   const [error, setError] = useState(null)
-  const [simulate, setSimulate] = useState(null)
   const [chosen, setChosen] = useState(() => saved('chosen'))
   const [selectedDay, setSelectedDay] = useState(null)
   const [running, setRunning] = useState(null) // null | 'live'
@@ -50,7 +49,7 @@ export default function App() {
     sq.reset(); setError(null); setRunning('live')
     if (question) setPendingQ(question)
     const target = day || null
-    stop.current = streamAssess(simulate, async (ev) => {
+    stop.current = streamAssess(null, async (ev) => {
       if (ev.type === 'step') sq.push(ev)
       else if (ev.type === 'result') {
         await sq.drained()
@@ -95,7 +94,7 @@ export default function App() {
               pendingQuestion={pendingQ} clearPending={() => setPendingQ(null)} /> : <StartPage onStart={() => { setSelectedDay(null); start(null) }} />)}
             {page === 'decide' && <Decide a={a} chosen={chosen} setChosen={setChosen} go={go} />}
             {page === 'records' && <Records />}
-            {page === 'settings' && <Settings simulate={simulate} setSimulate={setSimulate} />}
+            {page === 'settings' && <Settings />}
             {page === 'about' && <About />}
           </>
         )}
