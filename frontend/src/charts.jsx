@@ -156,7 +156,7 @@ export function RoadStatus({ weatherClosures = 0, manual = 'open' }) {
   const word = bad ? 'Blocked' : warn ? 'Slow' : 'Clear'
   return (
     <div className={`road ${tone}`}>
-      <div className="road-lane"><span className="car" /></div>
+      <div className="road-lane"><span className="car">🚗</span></div>
       <div className="road-word">{word}</div>
     </div>
   )

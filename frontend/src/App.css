@@ -607,8 +607,6 @@ body, .card, .tile, .block, .tag, .bubble, .draft pre { color: var(--ink); }
 /* v11: no decorative emoji */
 .pcard { grid-template-columns: 1fr 40px; }
 .pwide { grid-template-columns: 1fr 48px; }
-.car { width: 34px; height: 16px; top: 16px; border-radius: 6px 10px 4px 4px; background: var(--t, #2f74c0); font-size: 0; }
-.road.green .car { background: var(--green); } .road.yellow .car { background: var(--yellow); } .road.red .car { background: var(--red); }
 .person .bell { width: 10px; height: 10px; border-radius: 50%; background: #c9d1cc; justify-self: center; }
 .person.yes .bell { background: var(--green); }
 .p-ch .ch { font-size: 13px; font-weight: 700; border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px; }
