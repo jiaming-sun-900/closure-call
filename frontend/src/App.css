@@ -796,3 +796,7 @@ button.fc-row:disabled { cursor: wait; }
 .sp-time-l { font-size: 15px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
 .sp-time b { font-size: 34px; font-weight: 900; color: var(--usda); }
 .sp-time span:last-child { font-size: 19px; font-weight: 700; }
+.startpage.simple { position: relative; }
+.sp-time { position: absolute; top: 0; right: 0; margin: 0; align-items: flex-end; gap: 0; }
+.sp-time b { font-size: 17px; font-weight: 800; color: var(--muted); }
+.sp-time span:last-child { font-size: 14px; font-weight: 600; color: var(--muted); }

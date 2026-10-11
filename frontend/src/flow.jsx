@@ -153,7 +153,6 @@ function LocalTime() {
   const opt = { timeZone: 'America/Chicago' }
   return (
     <div className="sp-time">
-      <span className="sp-time-l">Local Time in Lake Charles</span>
       <b>{now.toLocaleTimeString('en-US', { ...opt, hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}</b>
       <span>{now.toLocaleDateString('en-US', { ...opt, weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</span>
     </div>
