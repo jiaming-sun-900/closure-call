@@ -596,3 +596,12 @@ body, .card, .tile, .block, .tag, .bubble, .draft pre { color: var(--ink); }
 @media (max-width: 900px) {
   .side nav.tabs.side-bottom { display: none; }
 }
+
+/* v10: results dashboard */
+.results-page .outlook .sec-h { margin: 0 0 16px; }
+.results-page .days { padding-top: 10px; }
+.results-page .day { cursor: default; }
+.results-page .day:hover { transform: none; }
+.day-wx { font-size: 14px; font-weight: 700; }
+.day-rec { font-size: 13px; font-weight: 800; color: var(--ink); }
+.hero-note { margin-top: 10px; font-weight: 700; font-size: 16px; }

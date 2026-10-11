@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from './api'
 import Leaf from './Leaf'
-import { AlertMap, LevelScale, OutageGauge, RoadStatus, WaterGauge, Wind } from './charts'
+import { OutageGauge, RoadStatus, WaterGauge, Wind } from './charts'
 import {
   AGENCY_FULL, AGENCY_NAME, CHANNEL, KIND_EMOJI, LEVEL, POSTURE, STATUS, agencyAction, agencyTone, agencyWord, ago, clean,
-  dayLong, fmt, levelTone, oneLiner, personAction,
+  fmt, levelTone, oneLiner, personAction,
 } from './lib'
 
 const FACILITY = 'USDA Lake Charles Service Center'
@@ -66,38 +66,38 @@ function FacilityTitle({ small }) {
     </div>
   )
 }
-function DateLines({ asOf, dayIso, skipped, live = true }) {
+function DateLines({ asOf, live = true }) {
   return (
     <div className="date-lines">
       <div>🕒 <b>Data updated:</b> {ago(asOf)}{live ? ' (live)' : ''}</div>
-      {dayIso && <div>📅 <b>Decision for:</b> {dayLong(dayIso)}</div>}
     </div>
   )
 }
 
 /* ------------------------------------------------------------------ 7-day outlook */
-export function Outlook({ days, selected, onPick, busy }) {
+export function Outlook({ days, nextDay }) {
   if (!days) return null
   return (
     <section className="outlook">
-      <h2 className="sec-h">7-day outlook</h2>
+      <h2 className="sec-h">📅 7-day forecast</h2>
       <div className="days">
         {days.map((d) => {
           const tone = d.closed ? 'grey' : levelTone(d.level)
+          const badge = d.date === days[0].date ? ['day-today', 'Today'] : d.date === nextDay ? ['day-next', 'Next workday'] : null
           return (
-            <button key={d.date} className={`day ${tone} ${selected === d.date ? 'sel' : ''}`} disabled={!!d.closed || busy}
-              onClick={() => onPick(d.date)} title={d.short || ''}>
-              {d.date === days[0].date && <div className="day-today">Today</div>}
+            <div key={d.date} className={`day ${tone}`} title={d.short || ''}>
+              {badge && <div className={badge[0]}>{badge[1]}</div>}
               <div className="day-w">{d.weekday}</div>
               <div className="day-d">{d.label}</div>
               <div className="day-e">{d.emoji}</div>
+              <div className="day-wx">{d.temp_f != null ? `${d.temp_f}°` : ''}{d.precip_pct ? ` · 💧${d.precip_pct}%` : ''}</div>
               {d.closed ? <div className="day-closed">Office closed</div> : (
                 <>
                   <div className="day-lv">Hazard {d.level}</div>
-                  <div className="day-c">Confidence {d.confidence.toLowerCase()}</div>
+                  <div className="day-rec">{POSTURE[d.recommended]?.word || 'Decide'}</div>
                 </>
               )}
-            </button>
+            </div>
           )
         })}
       </div>
@@ -166,7 +166,7 @@ export function Progress({ sq, dayIso }) {
         <Leaf size={52} />
         <div>
           <div className="ps-t">Analyzing {FACILITY}</div>
-          <div className="ps-s">For {dayLong(dayIso)}. Seven live checks run in parallel, then the rules decide.</div>
+          <div className="ps-s">Seven live checks run in parallel, then the rules decide.</div>
         </div>
       </div>
       <div className="pgrid">{DATA_TOOLS.map(card)}</div>
@@ -181,7 +181,7 @@ export function Progress({ sq, dayIso }) {
 const maxLevel = (r, kind) => Math.max(0, ...r.signals.filter((s) => s.kind === kind).map((s) => s.level))
 const Missing = () => <div>Data unavailable, treated as unknown</div>
 
-export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onPickDay, onDecide, pendingQuestion, clearPending, busy }) {
+export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onDecide, pendingQuestion, clearPending, busy }) {
   const [scenario, setScenario] = useState(null)
   useEffect(() => { window.scrollTo(0, 0) }, [a.id])
   const r = scenario ? scenario.rules : a.rules
@@ -193,13 +193,16 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onP
   const fc = inp.gauge?.forecast?.filter((p) => Date.parse(p.t) <= Date.parse(r.window.start)).pop()
   const bTone = r.recommended ? POSTURE[r.recommended].tone : 'red'
   const avail = scenario ? scenario.availability : a.notifications.availability
+  const nowWind = scenario?.inputs?.forecast ? peak : inp.forecast?.periods?.[0]
+  // later days that look worse than the next workday
+  const worse = (situation?.outlook || []).filter((d) => !d.closed && d.date > r.window.date && d.level > r.level)
 
   return (
     <div className="page results-page">
       <div className="res-top">
         <div>
           <FacilityTitle small />
-          <DateLines asOf={a.as_of} dayIso={a.rules.window.date} skipped={a.rules.window.skipped} />
+          <DateLines asOf={a.as_of} />
         </div>
         <div className="row">
           <button className="btn green" onClick={onReplay}>▶ Replay analysis</button>
@@ -222,6 +225,8 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onP
                 <span className={`chip ${levelTone(r.level)}`}>Hazard {r.level} of 4: {LEVEL[r.level].name}</span>
                 <span className="chip blue">Confidence {r.confidence.toLowerCase()}</span>
               </div>
+              {live.length > 0 && <div className="hero-note">⚠️ NWS alerts now: {[...new Set(live.map((x) => x.event))].join(', ')}</div>}
+              {worse.length > 0 && <div className="hero-note">👀 Heads up: {worse.map((d) => `${d.weekday} ${d.label} hazard ${d.level} (${POSTURE[d.recommended]?.word || 'decide'})`).join(', ')}</div>}
             </div>
           </section>
 
@@ -231,11 +236,7 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onP
           </section>
 
           <section className="tiles">
-            <div className="tile wide reveal">
-              <div className="tile-h">🗺 Alerts near the office <span className={`dot ${levelTone(maxLevel(r, 'nws'))}`} /></div>
-              <AlertMap lat={facility.lat} lon={facility.lon} alerts={a.inputs.alerts || []} height={230} />
-              <div className="tile-f">{live.length ? `${live.length} active: ${[...new Set(live.map((x) => x.event))].join(', ')}` : 'No active alerts'}</div>
-            </div>
+            {situation?.outlook && <div className="tile wide reveal"><Outlook days={situation.outlook} nextDay={r.window.date} /></div>}
             <div className="tile reveal">
               <div className="tile-h">🌊 River <span className={`dot ${levelTone(maxLevel(r, 'gauge'))}`} /></div>
               {inp.gauge ? <div className="river-row"><WaterGauge key={inp.gauge.stage_ft} stage={inp.gauge.stage_ft} forecast={fc?.ft} stages={inp.gauge.flood_stages_ft} height={170} />
@@ -246,8 +247,9 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onP
               {inp.outage ? <><OutageGauge key={inp.outage.pct} pct={inp.outage.pct} size={190} /><div className="keynum c">{inp.outage.customers_out.toLocaleString()}<small>homes out</small></div></> : <Missing />}
             </div>
             <div className="tile reveal">
-              <div className="tile-h">💨 Wind, {r.window.day} <span className={`dot ${levelTone(maxLevel(r, 'wind'))}`} /></div>
-              {peak ? <Wind mph={peak.wind_mph} /> : <div>Forecast not out yet</div>}
+              <div className="tile-h">💨 Wind now <span className={`dot ${levelTone(maxLevel(r, 'wind'))}`} /></div>
+              {nowWind ? <Wind mph={nowWind.wind_mph} /> : <Missing />}
+              {peak && !scenario && <div className="tile-f">Peak {peak.wind_mph} mph on {r.window.day}</div>}
             </div>
             <div className="tile reveal">
               <div className="tile-h">🚗 Roads <span className={`dot ${levelTone(maxLevel(r, 'roads'))}`} /></div>
@@ -255,28 +257,12 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onP
             </div>
           </section>
 
-          {situation?.outlook && <Outlook days={situation.outlook} selected={a.rules.window.date} onPick={onPickDay} busy={busy} />}
 
           <div className="blocks">
             <Block icon="⚖️" title="Thresholds and sources" sub={`${r.signals.length} signals`}>
               <SignalList signals={r.signals} />
               <h4>What would change this</h4>
               <ul className="bul">{r.what_would_change.map((w, i) => <li key={i}>{clean(w)}</li>)}</ul>
-            </Block>
-            <Block icon="🏛" title="Agencies" sub="Same data, different risk tolerance">
-              <div className="grid2">
-                {r.agencies.map((g) => (
-                  <div key={g.code} className={`agency ${agencyTone(g)}`}>
-                    <div className="ag-code">{AGENCY_NAME[g.code]} ({g.code})</div>
-                    <span className="chip ghost">{g.tolerance} risk tolerance</span>
-                    <div className={`ag-word ${agencyTone(g)}`}>{agencyWord(g)}</div>
-                    <div className="ag-action">{agencyAction(g)}</div>
-                    <LevelScale level={r.level} th={g.thresholds} />
-                    <div className="small">{clean(g.tolerance_note)}</div>
-                  </div>
-                ))}
-              </div>
-              <p className="small">ℹ️ Rural Development is served from Lafayette, not this building.</p>
             </Block>
             {!scenario && <Notices a={a} />}
             <Block icon="👥" title="People" sub={`${avail.total.on_site} on site, ${avail.total.telework} remote, ${avail.total.unavailable} unavailable`}>
@@ -289,7 +275,7 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onP
 
         <aside className="res-side">
           <section className="card">
-            <div className="card-h">🌿 Why we recommend this</div>
+            <div className="card-h">🌿 Agent recommendation</div>
             <p className="rationale">{clean(a.rationale)}</p>
             <div className="row between">
               <span className="small">{a.rationale_by === 'template' ? 'Rules decide the level. Template text.' : 'Rules decide the level. The agent wrote the words.'}</span>

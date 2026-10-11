@@ -38,7 +38,7 @@ export const agencyAction = (g) => {
 }
 
 const DAY_FULL = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday' }
-export const dayName = (r) => DAY_FULL[r.window.day] || r.window.day
+export const dayName = (r) => `Next workday (${DAY_FULL[r.window.day] || r.window.day})`
 
 // "Tuesday: building open, FSA teleworks, NRCS stops field work"
 const VERB = { OPEN: 'stays open', DELAYED_ARRIVAL: 'arrives late', EARLY_DEPARTURE: 'leaves early',
