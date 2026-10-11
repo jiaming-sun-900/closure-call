@@ -4,7 +4,7 @@ import Leaf from './Leaf'
 import { OutageGauge, RoadStatus, WaterGauge, Wind } from './charts'
 import {
   AGENCY_FULL, AGENCY_NAME, CHANNEL, LEVEL, POSTURE, STATUS, ago, clean,
-  fmt, levelTone, personAction,
+  dayLong, fmt, levelTone, personAction,
 } from './lib'
 
 const FACILITY = 'USDA Lake Charles Service Center'
@@ -66,16 +66,16 @@ function DateLines({ asOf, live = true }) {
 }
 
 /* ------------------------------------------------------------------ 7-day outlook */
-export function Outlook({ days, nextDay }) {
+export function Outlook({ days }) {
   if (!days) return null
   return (
     <section className="fc">
       <h2 className="fc-h">7-day forecast</h2>
       <div className="fc-list">
         {days.map((d) => {
-          const badge = d.date === days[0].date ? 'Today' : d.date === nextDay ? 'Next workday' : null
+          const badge = d.date === days[0].date ? 'Today' : null
           return (
-            <div key={d.date} className={`fc-row ${d.date === nextDay ? 'next' : ''} ${d.closed ? 'off' : ''}`} title={d.short || ''}>
+            <div key={d.date} className="fc-row" title={d.short || ''}>
               <div className="fc-day"><b>{d.weekday}</b><span>{d.label}</span></div>
               <div className="fc-e">{d.emoji}</div>
               <div className="fc-wx">{d.temp_f != null ? `${d.temp_f}°` : ''}{d.precip_pct ? <span> 💧{d.precip_pct}%</span> : null}</div>
@@ -186,6 +186,12 @@ export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, pen
   const nowWind = scenario?.inputs?.forecast ? peak : inp.forecast?.periods?.[0]
   // later days that look worse than the next workday
   const worse = (situation?.outlook || []).filter((d) => !d.closed && d.date > r.window.date && d.level > r.level)
+  const today = situation?.outlook?.[0]
+  const todayIso = today?.date || new Date().toLocaleDateString('en-CA')
+  const todayClosed = today?.closed
+  // holidays between today and the next workday, e.g. "Monday, Oct 12 is Columbus Day"
+  const skippedNote = (r.window.skipped || []).map((x) => x.split(': ')).filter(([d]) => d.split(' ')[1] !== todayIso)
+    .map(([d, n]) => `${dayLong(d.split(' ')[1])} is ${n.replace(' (federal holiday)', '')}`).join(', ')
 
   return (
     <div className="page results-page">
@@ -225,12 +231,24 @@ export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, pen
           )}
           <section className={`card rec ${scenario ? 'hypo' : ''}`} key={'r' + (scenario ? scenario.changed.join() : 'live')}>
             <div className="card-h">Agent recommendation</div>
-            <div className="tldr-h">TL;DR, next workday ({r.window.day})</div>
+            <div className="tldr-h">Today, {dayLong(todayIso)}</div>
+            {r.window.is_today ? null : (
+              <ul className="tldr">
+                <li><b>Office:</b> {todayClosed === 'Already closed today' ? 'closed for the day, office hours are over' : `closed (${(todayClosed || 'not a workday').toLowerCase()})`}. No closure decision needed today.</li>
+                <li><b>Right now:</b> {live.length ? `active NWS alerts: ${[...new Set(live.map((x) => x.event))].join(', ')}` : 'all clear, no active NWS alerts'}</li>
+              </ul>
+            )}
+            {!r.window.is_today && (
+              <>
+                <div className="tldr-h next">Next workday, {dayLong(r.window.date)}</div>
+                <p className="tldr-why">Today is not a workday, so this recommendation is for the next day the office opens{skippedNote ? ` (${skippedNote})` : ''}.</p>
+              </>
+            )}
             <ul className="tldr">
               <li><b>Building:</b> {r.recommended ? POSTURE[r.recommended].action : 'Weather data missing, decide manually'}</li>
               {r.agencies.map((g) => <li key={g.code}><b>{AGENCY_FULL[g.code] || g.code}:</b> {agencyLine(g)}</li>)}
               <li><b>Hazard:</b> {r.level} of 4 ({LEVEL[r.level].name}), confidence {r.confidence.toLowerCase()}</li>
-              {live.length > 0 && <li><b>Active NWS alerts:</b> {[...new Set(live.map((x) => x.event))].join(', ')}</li>}
+              {live.length > 0 && r.window.is_today && <li><b>Active NWS alerts:</b> {[...new Set(live.map((x) => x.event))].join(', ')}</li>}
               {worse.length > 0 && <li><b>Heads up:</b> {worse.map((d) => `${d.weekday} ${d.label} hazard ${d.level} (${POSTURE[d.recommended]?.word || 'decide'})`).join(', ')}</li>}
             </ul>
             {scenario ? <p className="small">The paragraph below is for live data. Hypotheticals are never saved.</p> : null}
@@ -247,7 +265,7 @@ export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, pen
             <button className="btn green" onClick={onReplay}>Replay analysis</button>
             <button className="btn green" onClick={onReanalyze} disabled={busy}>Re-analyze</button>
           </div>
-          {situation?.outlook && <Outlook days={situation.outlook} nextDay={r.window.date} />}
+          {situation?.outlook && <Outlook days={situation.outlook} />}
           <Ask a={a} onScenario={setScenario} pending={pendingQuestion} clearPending={clearPending} />
         </aside>
       </div>

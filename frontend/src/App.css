@@ -649,3 +649,7 @@ body, .card, .tile, .block, .tag, .bubble, .draft pre { color: var(--ink); }
   .side { position: fixed; top: 0; bottom: 0; left: 0; width: 232px; height: 100vh; overflow-y: auto; z-index: 20; }
   .shell > .content { grid-column: 2; }
 }
+
+/* v14: today first, then next workday */
+.tldr-h.next { margin-top: 10px; color: var(--ink); }
+.tldr-why { margin: 0 0 8px; font-size: 16px; }
