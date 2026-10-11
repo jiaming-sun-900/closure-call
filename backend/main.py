@@ -273,3 +273,10 @@ def clear_records(body: ClearIn, request: Request):
     if records.PATH.exists():
         records.PATH.rename(records.PATH.with_name(f"records.cleared-{datetime.now():%Y%m%d-%H%M%S}.jsonl"))
     return {"cleared": n}
+
+
+# ---------------------------------------------------------------- deployed: serve the built frontend from the same origin
+DIST = Path(__file__).parent.parent / "frontend" / "dist"
+if DIST.exists() and os.getenv("SERVE_FRONTEND") == "1":
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=DIST, html=True), name="frontend")

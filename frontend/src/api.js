@@ -1,4 +1,5 @@
-const BASE = import.meta.env.VITE_API_BASE || `http://${window.location.hostname}:8000`
+// dev: backend on :8000; production build: same origin as the page
+const BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? `http://${window.location.hostname}:8000` : '')
 
 async function req(path, opts = {}) {
   const r = await fetch(BASE + path, {
