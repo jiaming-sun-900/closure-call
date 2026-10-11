@@ -26,7 +26,7 @@ export default function App() {
   const [simulate, setSimulate] = useState(null)
   const [chosen, setChosen] = useState(() => saved('chosen'))
   const [selectedDay, setSelectedDay] = useState(null)
-  const [running, setRunning] = useState(null) // null | 'live' | 'replay'
+  const [running, setRunning] = useState(null) // null | 'live'
   const [pendingQ, setPendingQ] = useState(null)
   const sq = useStepQueue()
   const stop = useRef(null)
@@ -60,15 +60,8 @@ export default function App() {
       } else if (ev.type === 'error') { setError(ev.message); setRunning(null) }
     }, target)
   }
-  const replay = () => {
-    if (!a) return
-    sq.reset(); setRunning('replay')
-    a.trace.forEach((t) => { if (t.by !== 'agent' || t.tool === 'agent_write') sq.push({ type: 'step', tool: t.tool, status: 'running', by: t.by }) })
-    a.trace.forEach((t) => sq.push({ type: 'step', ...t, status: t.ok ? 'done' : 'error' }))
-    sq.drained().then(() => setTimeout(() => setRunning(null), 900))
-  }
 
-  const dayIso = (a && running === 'replay') ? a.rules.window.date : (selectedDay || situation?.next_workday || a?.rules.window.date)
+  const dayIso = selectedDay || situation?.next_workday || a?.rules.window.date
 
   return (
     <div className="shell">
@@ -79,7 +72,7 @@ export default function App() {
         </div>
         <nav className="tabs">
           {NAV.map(([k, label]) => (
-            <button key={k} className={page === k && !running ? 'on' : ''} onClick={() => { if (running === 'replay') setRunning(null); go(k) }}
+            <button key={k} className={page === k && !running ? 'on' : ''} onClick={() => go(k)}
               disabled={k === 'results' && !a}>
               <span className="nav-l">{label}</span>
             </button>
@@ -97,7 +90,7 @@ export default function App() {
           <>
             {page === 'start' && <StartPage onStart={() => { setSelectedDay(null); start(null) }} />}
             {page === 'results' && (a ? <ResultsPage a={a} facility={facility || a.facility} situation={situation} busy={!!running}
-              onReplay={replay} onReanalyze={() => start(a.rules.window.chosen ? a.rules.window.date : null)} onDecide={() => go('decide')}
+              onReanalyze={() => start(a.rules.window.chosen ? a.rules.window.date : null)} onDecide={() => go('decide')}
               onPickDay={(d) => { setSelectedDay(d); start(d) }}
               pendingQuestion={pendingQ} clearPending={() => setPendingQ(null)} /> : <StartPage onStart={() => { setSelectedDay(null); start(null) }} />)}
             {page === 'decide' && <Decide a={a} chosen={chosen} setChosen={setChosen} go={go} />}

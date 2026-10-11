@@ -184,7 +184,7 @@ const agencyLine = (g) => {
   return bits.join(', ')
 }
 
-export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, onPickDay, pendingQuestion, clearPending, busy }) {
+export function ResultsPage({ a, situation, onReanalyze, onDecide, onPickDay, pendingQuestion, clearPending, busy }) {
   const [scenario, setScenario] = useState(null)
   useEffect(() => { window.scrollTo(0, 0) }, [a.id])
   const r = scenario ? scenario.rules : a.rules
@@ -286,8 +286,7 @@ export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, onP
 
         <aside className="res-side">
           <div className="side-btns">
-            <button className="btn green" onClick={onReplay}>Replay Analysis</button>
-            <button className="btn green" onClick={onReanalyze} disabled={busy}>Re-analyze</button>
+            <button className="btn green" onClick={onReanalyze} disabled={busy}>Analyze Again</button>
           </div>
           {situation?.outlook && <Outlook days={situation.outlook} busy={busy} onPick={(d) => onPickDay(d)} />}
           <Ask a={a} onScenario={setScenario} pending={pendingQuestion} clearPending={clearPending} />
