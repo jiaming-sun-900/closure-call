@@ -277,9 +277,8 @@ export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, onP
                   <ul className="rec-reasons">{a.points.reasons.map((x, i) => <li key={i}>{clean(x)}</li>)}</ul>
                 </>
               ) : <p className="rationale">{clean(a.rationale)}</p>}
-              <div className="row between rec-foot">
+              <div className="rec-foot">
                 <span className="rec-note">{a.rationale_by === 'template' ? 'Rules Decide the Level. Template Text.' : 'Rules Decide the Level. The Agent Wrote the Words.'}</span>
-                <CopyBtn text={clean(a.rationale)} />
               </div>
             </div>
           </section>

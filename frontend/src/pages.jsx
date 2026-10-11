@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
-import { SignalList } from './flow'
+import { CopyBtn, SignalList } from './flow'
 import { POSTURE, agencyAction, clean, dayLong, fmt } from './lib'
 
 /* ---------- Decide ---------- */
@@ -15,6 +15,7 @@ function DecideInner({ a, chosen, setChosen }) {
   const [reason, setReason] = useState('')
   const [by, setBy] = useState('')
   const [done, setDone] = useState(null)
+  const [popup, setPopup] = useState(false)
   const [err, setErr] = useState(null)
   const [busy, setBusy] = useState(false)
   const ok = chosen && by.trim() && reason.trim().length >= 15 && (chosen !== 'CUSTOM' || custom.trim())
@@ -22,7 +23,7 @@ function DecideInner({ a, chosen, setChosen }) {
     setBusy(true); setErr(null)
     try {
       const rec = await api.decide({ assessment_id: a.id, option: chosen, custom_text: custom, reason, decided_by: by })
-      setDone(rec); setReason('')
+      setDone(rec); setPopup(true); setReason('')
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
   return (
@@ -55,7 +56,14 @@ function DecideInner({ a, chosen, setChosen }) {
       {!ok && <div className="quiet small">Pick an option, write at least one sentence, and enter your name.</div>}
       {err && <div className="alert red">{err}</div>}
       {done && (
-        <div className="success" onClick={() => setDone(null)}>
+        <section className="dec-sec">
+          <h3 className="dec-h">4. Share the Decision</h3>
+          <pre className="share">{shareText(done, a)}</pre>
+          <CopyBtn text={shareText(done, a)} label="Copy to Email" />
+        </section>
+      )}
+      {done && popup && (
+        <div className="success" onClick={() => setPopup(false)}>
           <div className="success-card">
             <div className="check">✓</div>
             <h3>Decision saved</h3>
@@ -66,6 +74,12 @@ function DecideInner({ a, chosen, setChosen }) {
       )}
     </div>
   )
+}
+
+// the message a manager pastes into an email after deciding
+function shareText(d, a) {
+  const actions = d.followed_recommendation && a.points ? '\n\nActions:\n' + a.points.actions.map((x, i) => `${i + 1}. ${clean(x)}`).join('\n') : ''
+  return `USDA Lake Charles Service Center\nOperating status for ${dayLong(a.rules.window.date)}: ${clean(d.decision)}\n\nReason: ${clean(d.reason)}${actions}\n\nDecided by ${d.decided_by}, ${fmt(d.decided_at)}. Record ${d.record_id}.`
 }
 
 /* ---------- Records ---------- */

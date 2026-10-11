@@ -693,3 +693,8 @@ button.fc-row:disabled { cursor: wait; }
 .dec-sec .inp { margin-top: 0; }
 .dec-sec .radios + .inp { margin-top: 10px; }
 .fc-sched { font-size: 13px; font-weight: 700; color: var(--muted); }
+
+/* v18 */
+.dot { width: 16px; height: 16px; box-shadow: 0 0 0 5px var(--tl); }
+.rec-foot { margin-top: 20px; }
+.share { white-space: pre-wrap; font: inherit; font-size: 17px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin: 0 0 12px; }
