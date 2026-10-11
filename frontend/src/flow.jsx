@@ -75,14 +75,15 @@ export function Outlook({ days, onPick, busy }) {
         {days.map((d) => {
           const badge = d.date === days[0].date ? 'Today' : null
           return (
-            <button key={d.date} className="fc-row" disabled={busy} onClick={() => !d.closed && onPick(d.date)}
-              title={d.short || ''} data-hover={d.closed ? 'Office Closed, No Decision Needed' : 'Analyze This Day →'}>
+            <button key={d.date} className="fc-row" disabled={busy} onClick={() => onPick(d.date)}
+              title={d.short || ''} data-hover="Analyze This Day →">
               <div className="fc-day"><b>{d.weekday}</b><span>{d.label}</span></div>
               <div className="fc-e">{d.emoji}</div>
               <div className="fc-wx">{d.temp_f != null ? `${d.temp_f}°` : ''}{d.precip_pct ? <span> 💧{d.precip_pct}%</span> : null}</div>
               <div className="fc-rec">
                 {badge && <span className="fc-badge">{badge}</span>}
-                <span>{d.closed ? 'Office closed' : `${POSTURE[d.recommended]?.word || 'Decide'}, hazard ${d.level}`}</span>
+                <span>Hazard {d.level ?? '?'}</span>
+                {d.closed && <span className="fc-sched">{d.closed}</span>}
               </div>
             </button>
           )
@@ -253,6 +254,7 @@ export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, onP
                   <li><b>Right Now:</b> {live.length ? `active NWS alerts: ${[...new Set(live.map((x) => x.event))].join(', ')}` : 'all clear, no active NWS alerts'}</li>
                 </ul>
               )}
+              {r.window.is_today && r.window.closed && <p className="tldr-why">Office schedule: normally closed ({r.window.closed.toLowerCase()}).</p>}
               {r.window.is_today && <Tldr r={r} live={live} worse={worse} showAlerts />}
             </div>
 
@@ -260,7 +262,7 @@ export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, onP
               <div className="rec-sec">
                 <h3 className="rec-h">{chosen ? 'Selected Day' : 'Next Workday'}, {dayLong(r.window.date)}</h3>
                 {chosen
-                  ? <p className="tldr-why">You picked this day from the 7-day forecast. <button className="linkbtn" onClick={() => onPickDay(null)} disabled={busy}>Back to Today</button></p>
+                  ? <p className="tldr-why">You picked this day from the 7-day forecast.{r.window.closed ? ` Office schedule: normally closed (${r.window.closed.toLowerCase()}).` : ''} <button className="linkbtn" onClick={() => onPickDay(null)} disabled={busy}>Back to Today</button></p>
                   : <p className="tldr-why">Today is not a workday, so this recommendation is for the next day the office opens{skippedNote ? ` (${skippedNote})` : ''}.</p>}
                 <Tldr r={r} live={live} worse={worse} />
               </div>
@@ -289,7 +291,7 @@ export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, onP
             <button className="btn green" onClick={onReplay}>Replay Analysis</button>
             <button className="btn green" onClick={onReanalyze} disabled={busy}>Re-analyze</button>
           </div>
-          {situation?.outlook && <Outlook days={situation.outlook} busy={busy} onPick={(d) => onPickDay(d === todayIso ? null : d)} />}
+          {situation?.outlook && <Outlook days={situation.outlook} busy={busy} onPick={(d) => onPickDay(d)} />}
           <Ask a={a} onScenario={setScenario} pending={pendingQuestion} clearPending={clearPending} />
         </aside>
       </div>

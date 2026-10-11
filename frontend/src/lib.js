@@ -94,8 +94,4 @@ export const AGENCY_FULL = {
   NRCS: 'Natural Resources Conservation Service (NRCS)',
 }
 export const AGENCY_NAME = { FSA: 'Farm Service Agency', NRCS: 'Natural Resources Conservation Service' }
-export const greeting = (name = 'Denise') => {
-  const h = Number(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', hour: 'numeric', hour12: false }))
-  return `${h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'}, ${name}`
-}
 export const dayLong = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })

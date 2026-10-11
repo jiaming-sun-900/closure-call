@@ -58,7 +58,7 @@ class FacilityStatusIn(BaseModel):
     roof: str = "ok"  # ok | damaged
     roads: str = "open"  # open | limited | impassable
     notes: str = ""
-    updated_by: str = "Denise Fontenot"
+    updated_by: str = "Facility Manager"
 
 
 @app.put("/facility/status")
@@ -138,7 +138,7 @@ class DecisionIn(BaseModel):
     option: str  # one of rules.POSTURES or "CUSTOM"
     custom_text: str | None = None
     reason: str
-    decided_by: str = "Denise Fontenot"
+    decided_by: str
 
 
 @app.post("/decision")
@@ -146,6 +146,8 @@ def decision(body: DecisionIn):
     a = _load_assessment(body.assessment_id)
     if not a:
         raise HTTPException(404, "Assessment not found — run an assessment first")
+    if not body.decided_by.strip():
+        raise HTTPException(400, "Enter the name of the person deciding")
     if not body.reason or len(body.reason.strip()) < 15:
         raise HTTPException(400, "A reason paragraph is required (at least a sentence)")
     if body.option == "CUSTOM":
@@ -160,7 +162,7 @@ def decision(body: DecisionIn):
     entry = {
         "record_id": f"DR-{len(records.all_records()) + 1:04d}",
         "decided_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "decided_by": body.decided_by,
+        "decided_by": body.decided_by.strip(),
         "operating_day": f"{r['window']['day']} {r['window']['date']}",
         "decision": label,
         "posture": posture,

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
 import { SignalList } from './flow'
-import { POSTURE, agencyAction, clean, fmt } from './lib'
+import { POSTURE, agencyAction, clean, dayLong, fmt } from './lib'
 
 /* ---------- Decide ---------- */
 export function Decide({ a, chosen, setChosen, go }) {
@@ -13,11 +13,11 @@ function DecideInner({ a, chosen, setChosen }) {
   const r = a.rules
   const [custom, setCustom] = useState('')
   const [reason, setReason] = useState('')
-  const [by, setBy] = useState('Denise Fontenot')
+  const [by, setBy] = useState('')
   const [done, setDone] = useState(null)
   const [err, setErr] = useState(null)
   const [busy, setBusy] = useState(false)
-  const ok = chosen && reason.trim().length >= 15 && (chosen !== 'CUSTOM' || custom.trim())
+  const ok = chosen && by.trim() && reason.trim().length >= 15 && (chosen !== 'CUSTOM' || custom.trim())
   const submit = async () => {
     setBusy(true); setErr(null)
     try {
@@ -28,26 +28,31 @@ function DecideInner({ a, chosen, setChosen }) {
   return (
     <div className="page">
       <h2 className="page-h">Make the Call</h2>
-      <p className="tagline">The system recommends. You decide.</p>
-      <div className="opts">
-        {r.options.map((o) => (
-          <button key={o.key} className={`opt ${o.recommended ? 'recd' : ''} ${chosen === o.key ? 'on' : ''}`} onClick={() => setChosen(o.key)}>
-            {o.recommended && <span className="badge">Recommended</span>}
-            <span className="opt-t">{POSTURE[o.key].action}</span>
-          </button>
-        ))}
-        <button className={`opt ${chosen === 'CUSTOM' ? 'on' : ''}`} onClick={() => setChosen('CUSTOM')}>
-          <span className="opt-t">Write My Own</span>
-        </button>
-      </div>
-      {chosen === 'CUSTOM' && <input className="inp" placeholder="Your decision, for example: Open 10 AM to 2 PM" value={custom} onChange={(e) => setCustom(e.target.value)} />}
-      <label className="lbl">Your reason (required)</label>
-      <textarea className="inp" rows={4} placeholder="What did you weigh? This is saved with all the evidence." value={reason} onChange={(e) => setReason(e.target.value)} />
-      <div className="row">
-        <input className="inp by" value={by} onChange={(e) => setBy(e.target.value)} aria-label="Decided by" />
-        <button className="btn green big" disabled={!ok || busy} onClick={submit}>{busy ? 'Saving…' : 'Submit Decision'}</button>
-      </div>
-      {!ok && <div className="quiet small">Pick an option and write at least one sentence.</div>}
+      <section className="dec-sec">
+        <h3 className="dec-h">1. Building Status for {dayLong(r.window.date)}</h3>
+        <div className="radios" role="radiogroup">
+          {[...r.options.map((o) => ({ key: o.key, label: POSTURE[o.key].action, rec: o.recommended })), { key: 'CUSTOM', label: 'Write my own' }].map((o) => (
+            <label key={o.key} className={`radio ${chosen === o.key ? 'on' : ''}`}>
+              <input type="radio" name="decision" checked={chosen === o.key} onChange={() => setChosen(o.key)} />
+              <span className="radio-t">{o.label}</span>
+              {o.rec && <span className="radio-rec">Recommended</span>}
+            </label>
+          ))}
+        </div>
+        {chosen === 'CUSTOM' && <input className="inp" placeholder="Your decision, for example: Open 10 AM to 2 PM" value={custom} onChange={(e) => setCustom(e.target.value)} />}
+      </section>
+      <section className="dec-sec">
+        <h3 className="dec-h">2. Your Reason</h3>
+        <textarea className="inp" rows={4} placeholder="What did you weigh? This is saved with all the evidence." value={reason} onChange={(e) => setReason(e.target.value)} />
+      </section>
+      <section className="dec-sec">
+        <h3 className="dec-h">3. Decided By</h3>
+        <div className="row">
+          <input className="inp by" value={by} placeholder="Your name and title" onChange={(e) => setBy(e.target.value)} aria-label="Decided by" />
+          <button className="btn green big" disabled={!ok || busy} onClick={submit}>{busy ? 'Saving…' : 'Submit Decision'}</button>
+        </div>
+      </section>
+      {!ok && <div className="quiet small">Pick an option, write at least one sentence, and enter your name.</div>}
       {err && <div className="alert red">{err}</div>}
       {done && (
         <div className="success" onClick={() => setDone(null)}>
@@ -185,7 +190,7 @@ function ClearRecords() {
 function ResetFacility() {
   const [msg, setMsg] = useState(null)
   const reset = async () => {
-    await api.setStatus({ power: 'ok', water: 'ok', roof: 'ok', roads: 'open', notes: '', updated_by: 'Denise Fontenot' })
+    await api.setStatus({ power: 'ok', water: 'ok', roof: 'ok', roads: 'open', notes: '', updated_by: 'Facility Manager' })
     setMsg('Building check reset: power, water, roof ok, roads open')
   }
   return (

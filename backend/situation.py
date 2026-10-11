@@ -42,7 +42,7 @@ def build(facility: dict) -> dict:
     today = now.astimezone(z).date()
     next_day = rules.operating_window(facility, now)["date"]
 
-    outlook, workday_n = [], 0
+    outlook = []
     for i in range(7):
         d = today + timedelta(days=i)
         ds = d.isoformat()
@@ -52,21 +52,18 @@ def build(facility: dict) -> dict:
                  "emoji": weather_emoji(wx["short"]) if wx else "·", "short": wx["short"] if wx else None,
                  "temp_f": wx["temp_f"] if wx else None, "precip_pct": wx["precip_pct"] if wx else None,
                  "closed": rules.closed_reason(facility, d), "is_next_workday": ds == next_day}
-        if not entry["closed"]:
-            win = rules.operating_window(facility, now, ds)
-            if win["end"] <= now:
-                entry["closed"] = "Already closed today"
-            else:
-                r = rules.evaluate(alerts=alerts, forecast=hourly, gauge=gauge, outage=outage, roads=roads,
-                                   facility_status=fstatus, facility=facility, now=now, target_date=ds,
-                                   data_status={"alerts": "ok" if alerts is not None else "error"})
-                # confidence falls with each workday further out (forecast skill drops with lead time)
-                cap = ["HIGH", "MEDIUM"][workday_n] if workday_n < 2 else "LOW"
-                workday_n += 1
-                conf = min(r["confidence"], cap, key=rules.CONF_ORDER.index)
-                entry.update(level=r["level"], level_label=r["level_label"], recommended=r["recommended"],
-                             recommended_label=r["recommended_label"], confidence=conf,
-                             agencies={g["code"]: g["posture"] for g in r["agencies"]})
+        # every day gets the same analysis; the office schedule is shown as information only
+        if not entry["closed"] and rules.operating_window(facility, now, ds)["end"] <= now:
+            entry["closed"] = "Office hours over"
+        r = rules.evaluate(alerts=alerts, forecast=hourly, gauge=gauge, outage=outage, roads=roads,
+                           facility_status=fstatus, facility=facility, now=now, target_date=ds,
+                           data_status={"alerts": "ok" if alerts is not None else "error"})
+        # confidence falls with each day further out (forecast skill drops with lead time)
+        cap = "HIGH" if i < 2 else "MEDIUM" if i < 4 else "LOW"
+        conf = min(r["confidence"], cap, key=rules.CONF_ORDER.index)
+        entry.update(level=r["level"], level_label=r["level_label"], recommended=r["recommended"],
+                     recommended_label=r["recommended_label"], confidence=conf,
+                     agencies={g["code"]: g["posture"] for g in r["agencies"]})
         outlook.append(entry)
 
     fetched = [x for x in (alerts and alerts[0]["fetched_at"] if alerts else None, hourly and hourly["fetched_at"],
