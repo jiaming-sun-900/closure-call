@@ -140,11 +140,26 @@ export function StartPage({ onStart }) {
     <div className="page startpage simple fade">
       <div className="sp-center">
         <h1 className="sp-name">{FACILITY}</h1>
+        <LocalTime />
         <button className="start-btn" onClick={() => onStart()}>Start Analysis</button>
       </div>
     </div>
   )
 }
+// the facility's own clock (Lake Charles is on Central time), so remote viewers see what "today" means
+function LocalTime() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 15000); return () => clearInterval(t) }, [])
+  const opt = { timeZone: 'America/Chicago' }
+  return (
+    <div className="sp-time">
+      <span className="sp-time-l">Local Time in Lake Charles</span>
+      <b>{now.toLocaleTimeString('en-US', { ...opt, hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}</b>
+      <span>{now.toLocaleDateString('en-US', { ...opt, weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+    </div>
+  )
+}
+
 function LiveStat({ icon, label, value, note, tone, wide }) {
   return (
     <div className={`livestat ${tone} ${wide ? 'wide' : ''}`}>
