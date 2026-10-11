@@ -198,7 +198,7 @@ export function Progress({ sq, dayIso }) {
       <div className="pgrid">{DATA_TOOLS.map(card)}</div>
       {wide('evaluate_rules')}
       {wide('agent_write')}
-      <div className="built center">Built with the Strands Agents SDK</div>
+      <div className="built"><span className="built-k">Built with</span> Strands Agents SDK</div>
     </div>
   )
 }

@@ -743,3 +743,23 @@ button.fc-row:disabled { cursor: wait; }
 .decide-page .page-h { margin-top: 10px; }
 .radio.custom { border-top: 2px dashed var(--line); font-weight: 900; color: var(--usda); }
 .radio.custom .radio-t::after { content: 'Type your own decision'; margin-left: 10px; font-size: 14px; font-weight: 700; color: var(--muted); }
+
+/* v22: Strands badge, About page */
+.built { margin: 26px auto 0; width: fit-content; padding: 14px 28px; border: 2px solid var(--usda); border-radius: 16px; background: #fff; font-size: 26px; font-weight: 900; color: var(--usda); }
+.built-k { font-size: 18px; font-weight: 700; color: var(--muted); margin-right: 6px; }
+.about { max-width: 1000px; margin: 0 auto; }
+.about-hero { display: flex; align-items: center; gap: 22px; padding: 10px 0 26px; border-bottom: 1.5px solid var(--line); }
+.about-name { font-size: 44px; font-weight: 900; color: var(--usda); margin: 0; letter-spacing: -.5px; }
+.about-lead { font-size: 22px; font-weight: 700; margin: 6px 0 0; line-height: 1.4; }
+.about-sec { padding: 26px 0; border-bottom: 1.5px solid var(--line); }
+.about-h { font-size: 24px; font-weight: 900; margin: 0 0 14px; }
+.about-p { font-size: 18px; line-height: 1.6; margin: 0; }
+.about-steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.about-steps li { display: flex; flex-direction: column; gap: 8px; background: #fff; border: 1.5px solid var(--line); border-radius: 16px; padding: 18px; font-size: 16px; line-height: 1.5; }
+.about-steps b { font-size: 19px; }
+.about-n { width: 34px; height: 34px; border-radius: 50%; background: var(--usda); color: #fff; font-weight: 900; display: grid; place-items: center; }
+.about-sdk { display: inline-block; padding: 12px 24px; border: 2px solid var(--usda); border-radius: 14px; background: var(--usda-l); color: var(--usda); font-size: 26px; font-weight: 900; margin-bottom: 14px; }
+.about-stack { display: flex; flex-wrap: wrap; gap: 8px; }
+.about-stack span { padding: 7px 14px; border: 1.5px solid var(--line); border-radius: 999px; background: #fff; font-size: 15px; font-weight: 700; }
+.about-team { text-align: center; color: var(--muted); font-size: 15px; font-weight: 700; margin: 24px 0 0; }
+@media (max-width: 900px) { .about-steps { grid-template-columns: 1fr 1fr; } .about-name { font-size: 34px; } }

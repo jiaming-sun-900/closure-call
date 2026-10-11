@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
 import { CopyBtn, SignalTable, Sources } from './flow'
+import Leaf from './Leaf'
 import { POSTURE, agencyAction, clean, dayLong, fmt } from './lib'
 
 /* ---------- Decide ---------- */
@@ -218,18 +219,40 @@ function ResetFacility() {
   )
 }
 
+const HOW = [
+  ['Gather', 'Seven live checks: NWS alerts and forecast, NOAA river gauge, Entergy outages, LA 511 roads, building checks and the staff roster.'],
+  ['Apply Rules', 'Fixed rules compare each reading with a published threshold and set the hazard level. Same data, same result.'],
+  ['Write', 'A Strands agent writes the recommendation, the reasons and a notice for each role. It cannot change the level.'],
+  ['Decide', 'The manager picks the status and writes a reason. The decision and all evidence go on record.'],
+]
+const STACK = ['Anthropic Claude Haiku 5.5', 'National Weather Service', 'NOAA Water', 'Entergy Outages', 'LA 511', 'FastAPI', 'React']
+
 export function About() {
   return (
     <div className="page fade about">
-      <h2 className="page-h">About Us</h2>
-      <p className="about-lead">Data-driven weather analysis for USDA facility closure decisions.</p>
-      <ul className="bul">
-        <li>Live NWS, NOAA river, Entergy power and LA 511 road data</li>
-        <li>Deterministic rules set the hazard level</li>
-        <li>An AI agent built with the Strands Agents SDK writes the rationale and notices</li>
-        <li>A human makes the final call, with every decision on record</li>
-      </ul>
-      <p className="small">Built at Hack Midwest 2026 for the USDA Closure Call challenge.</p>
+      <div className="about-hero">
+        <Leaf size={84} />
+        <div>
+          <h2 className="about-name">Closure Call</h2>
+          <p className="about-lead">Helps a USDA facility manager decide if the office opens in severe weather, and tells the right people.</p>
+        </div>
+      </div>
+      <section className="about-sec">
+        <h3 className="about-h">The Problem</h3>
+        <p className="about-p">When a storm comes, a manager checks many websites, decides alone, and writes many messages to two agencies. Notices go out late, and nobody can see later why the call was made.</p>
+      </section>
+      <section className="about-sec">
+        <h3 className="about-h">How It Works</h3>
+        <ol className="about-steps">
+          {HOW.map(([t, d], i) => <li key={t}><span className="about-n">{i + 1}</span><b>{t}</b><span>{d}</span></li>)}
+        </ol>
+      </section>
+      <section className="about-sec">
+        <h3 className="about-h">Built With</h3>
+        <div className="about-sdk">Strands Agents SDK</div>
+        <div className="about-stack">{STACK.map((x) => <span key={x}>{x}</span>)}</div>
+      </section>
+      <p className="about-team">Made by Chris and Zoe at Hack Midwest 2026 for the USDA Closure Call challenge.</p>
     </div>
   )
 }
