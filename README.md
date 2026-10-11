@@ -1,6 +1,11 @@
 # Closure Call 🍃
 
-**Hack Midwest 2026 · USDA AI Challenge "Closure Call" · Best Use of Strands Agents SDK**
+**Hack Midwest 2026 · USDA AI Challenge "Closure Call" · Best Use of Strands Agents SDK · Akamai Cloud AI Challenge**
+
+### Live demo: **https://172-236-110-231.ip.linodeusercontent.com**
+Runs on Akamai Cloud (Linode, Chicago) with HTTPS. No login. Live NWS data.
+
+Built by Jiaming Sun and Zoe at Hack Midwest 2026.
 
 Severe weather is coming. Should the USDA Lake Charles Service Center (Calcasieu Parish, LA) open tomorrow, and who needs to be told what?
 
@@ -18,6 +23,12 @@ Closure Call gives the facility manager a **fast, consistent recommendation with
 `backend/agent.py` builds a Strands `Agent` (Anthropic Claude Haiku 5.5) with 9 tools: `get_nws_alerts`, `get_forecast`, `get_river_gauge`, `get_power_outages`, `get_road_closures`, `get_facility_status`, `get_roster`, `evaluate_rules`, `draft_notifications`.
 The agent gathers data (data tools in parallel), calls the rules engine, then writes the rationale and role drafts via structured output.
 **Guardrail**: the posture comes only from the `evaluate_rules` tool result captured server-side; the agent cannot change it. If no key is set or the model fails, the same tools run directly and templates write the text. Agent results are cached by an input fingerprint so unchanged data never triggers a new model call.
+
+## Hazard types
+Two hazard types handled in depth: **hurricane and wind** (tropical watches/warnings, high wind, forecast wind) and **flooding** (flood and flash flood alerts, Calcasieu River flood stages). Any other NWS alert goes through a CAP severity × urgency fallback rule. Power, roads and building checks are impact signals.
+
+## Deployment (Akamai Cloud)
+FastAPI serves the API and the built frontend from one origin behind Caddy (automatic HTTPS) on a Linode Nanode in Chicago. See `deploy/`.
 
 ## Run locally
 ```bash
