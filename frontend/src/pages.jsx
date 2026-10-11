@@ -7,10 +7,10 @@ import { POSTURE, agencyAction, clean, dayLong, fmt } from './lib'
 /* ---------- Decide ---------- */
 export function Decide({ a, chosen, setChosen, go }) {
   if (!a) return <div className="page start fade"><h2 className="page-h">Make the Call</h2><p className="quiet">Run an analysis first.</p><button className="btn green huge" onClick={() => go('start')}>Start Analysis</button></div>
-  return <DecideInner a={a} chosen={chosen} setChosen={setChosen} />
+  return <DecideInner a={a} chosen={chosen} setChosen={setChosen} go={go} />
 }
 
-function DecideInner({ a, chosen, setChosen }) {
+function DecideInner({ a, chosen, setChosen, go }) {
   const r = a.rules
   const [custom, setCustom] = useState('')
   const [reason, setReason] = useState('')
@@ -67,9 +67,13 @@ function DecideInner({ a, chosen, setChosen }) {
         <div className="success" onClick={() => setPopup(false)}>
           <div className="success-card">
             <div className="check">✓</div>
-            <h3>Decision saved</h3>
+            <h3>Decision Saved</h3>
             <p>{done.record_id}: {clean(done.decision)}</p>
-            <p className="quiet small">Evidence snapshot stored. Tap to close.</p>
+            <p className="success-note">Your decision and all its evidence are saved in Records.</p>
+            <div className="row center-row">
+              <button className="btn green" onClick={(e) => { e.stopPropagation(); go('records') }}>View in Records</button>
+              <button className="btn">Close</button>
+            </div>
           </div>
         </div>
       )}

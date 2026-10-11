@@ -769,3 +769,7 @@ button.fc-row:disabled { cursor: wait; }
 .settings-page .settings { max-width: none; padding: 24px 26px; margin-top: 18px; }
 .settings.danger { border: 2px solid var(--red); background: #fff6f5; }
 .settings.danger .card-h { color: var(--red); }
+
+/* v24: decision saved popup */
+.success-note { font-size: 17px; font-weight: 700; color: var(--usda); margin: 10px 0 16px; }
+.success-card .center-row { justify-content: center; gap: 10px; }
