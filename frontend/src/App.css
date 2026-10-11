@@ -643,3 +643,9 @@ body, .card, .tile, .block, .tag, .bubble, .draft pre { color: var(--ink); }
 .tldr b { font-weight: 900; }
 .results-page > .blocks { margin-top: 24px; }
 @media (max-width: 1100px) { .results-page .res-grid { grid-template-columns: 1fr; } .res-name { font-size: 30px; } }
+
+/* v13: sidebar pinned full height on desktop */
+@media (min-width: 901px) {
+  .side { position: fixed; top: 0; bottom: 0; left: 0; width: 232px; height: 100vh; overflow-y: auto; z-index: 20; }
+  .shell > .content { grid-column: 2; }
+}
