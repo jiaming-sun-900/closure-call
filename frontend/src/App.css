@@ -576,3 +576,12 @@ body, .card, .tile, .block, .tag, .bubble, .draft pre { color: var(--ink); }
 .startpage .day { padding: 16px 8px 14px; }
 @media (max-width: 900px) { .startpage { min-height: 0; } .start-col { width: 100%; } }
 .day-today { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--blue); color: #fff; font-size: 13px; font-weight: 800; padding: 2px 10px; border-radius: 99px; white-space: nowrap; }
+
+/* ===== v8: minimal centered start page ===== */
+.startpage.simple { min-height: calc(100vh - 44px); display: flex; align-items: center; justify-content: center; }
+.sp-center { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; transform: translateY(-4vh); }
+.sp-center .sp-name { font-size: 52px; margin: 0; }
+.sp-day { font-size: 24px; font-weight: 800; margin-bottom: 18px; }
+.sp-center .start-btn { padding: 24px 64px; font-size: 28px; border-radius: 20px; }
+.sp-center .start-note { margin-top: 6px; font-size: 18px; }
+@media (max-width: 900px) { .sp-center .sp-name { font-size: 32px; } .sp-day { font-size: 19px; } .sp-center .start-btn { width: 100%; padding: 20px; } }

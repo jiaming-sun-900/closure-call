@@ -106,41 +106,17 @@ export function Outlook({ days, selected, onPick, busy }) {
 }
 
 /* ------------------------------------------------------------------ start page */
-export function StartPage({ situation, onStart, selected, setSelected }) {
+export function StartPage({ situation, onStart, selected }) {
   const s = situation
-  const riverTone = !s?.river ? 'grey' : s.river.stage_ft >= (s.river.flood_stages_ft.moderate || 99) ? 'red' : s.river.stage_ft >= (s.river.flood_stages_ft.minor || 99) ? 'yellow' : 'green'
-  const outTone = !s?.outage ? 'grey' : s.outage.pct >= 25 ? 'red' : s.outage.pct >= 3 ? 'yellow' : 'green'
-  const windTone = !s?.current ? 'grey' : s.current.wind_mph >= 40 ? 'red' : s.current.wind_mph >= 25 ? 'yellow' : 'green'
+  const day = selected || s?.next_workday
   return (
-    <div className="page startpage fade">
-      <header className="sp-head">
-        <div>
-          <h1 className="sp-name">{FACILITY}</h1>
-          <div className="sp-meta">
-            <span>📍 5417 Gerstner Memorial Dr, Lake Charles, {PLACE}</span>
-            {s && <span>📅 Decision for {dayLong(selected || s.next_workday)}</span>}
-          </div>
-        </div>
-        <div className="start-col">
-          <button className="start-btn" onClick={() => onStart()}>Start analysis</button>
-          <div className="start-note">🕒 Data updated {s ? ago(s.as_of) : '…'}</div>
-        </div>
-      </header>
-
-      <section className="sp-live">
-        <div className="sp-map">
-          <AlertMap lat={30.163142} lon={-93.17974} alerts={s?.alerts || []} height="100%" zoom={8} labels
-            wind={s?.current && { dir: s.current.wind_dir, mph: s.current.wind_mph }} hideWindBadge />
-        </div>
-        <div className="sp-stats">
-          <LiveStat icon={s?.current?.emoji || '🌡'} label="Temperature" value={s?.current ? `${s.current.temp_f}°F` : '…'} note={s?.current?.short} tone="blue" />
-          <LiveStat icon="💨" label="Wind" value={s?.current ? `${s.current.wind_mph} mph` : '…'} note={s?.current ? `From the ${({ N: 'north', S: 'south', E: 'east', W: 'west' })[s.current.wind_dir] || s.current.wind_dir}` : ''} tone={windTone} />
-          <LiveStat icon="🌊" label="Calcasieu River" value={s?.river ? `${s.river.stage_ft.toFixed(1)} ft` : '…'} note={s?.river ? `Minor flood at ${s.river.flood_stages_ft.minor} ft` : ''} tone={riverTone} />
-          <LiveStat icon="⚡" label="Power outages" value={s?.outage ? s.outage.customers_out.toLocaleString() : '…'} note={s?.outage ? `of ${s.outage.customers_served.toLocaleString()} homes` : ''} tone={outTone} />
-        </div>
-      </section>
-
-      <Outlook days={s?.outlook} selected={selected || s?.next_workday} onPick={(d) => { setSelected(d); onStart(d) }} />
+    <div className="page startpage simple fade">
+      <div className="sp-center">
+        <h1 className="sp-name">{FACILITY}</h1>
+        <div className="sp-day">Decision for {day ? new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '…'}</div>
+        <button className="start-btn" onClick={() => onStart()}>Start analysis</button>
+        <div className="start-note">🕒 Data updated {s ? ago(s.as_of) : '…'}</div>
+      </div>
     </div>
   )
 }
