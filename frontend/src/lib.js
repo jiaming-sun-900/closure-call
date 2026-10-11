@@ -21,11 +21,6 @@ export const LEVEL = [
 export const levelTone = (n) => LEVEL[Math.max(0, Math.min(4, n || 0))].tone
 
 
-export const agencyTone = (g) =>
-  POSTURE[g.posture].tone === 'green' && g.field_work && g.field_work !== 'normal' ? 'yellow' : POSTURE[g.posture].tone
-
-// One word for each agency tag; the subline says the field work part
-export const agencyWord = (g) => POSTURE[g.posture].word
 export const agencyAction = (g) => {
   const parts = []
   if (g.posture !== 'OPEN') parts.push(POSTURE[g.posture].action)
@@ -34,25 +29,6 @@ export const agencyAction = (g) => {
   return parts.length ? parts.join(', ') : 'Work as usual'
 }
 
-const DAY_FULL = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday' }
-export const dayName = (r) => `Next workday (${DAY_FULL[r.window.day] || r.window.day})`
-
-// "Tuesday: building open, FSA teleworks, NRCS stops field work"
-const VERB = { OPEN: 'stays open', DELAYED_ARRIVAL: 'arrives late', EARLY_DEPARTURE: 'leaves early',
-  UNSCHEDULED_TELEWORK: 'teleworks', CLOSED_TELEWORK: 'works remotely', CLOSED: 'stays home' }
-export function oneLiner(r) {
-  if (!r.recommended) return `${dayName(r)}: weather data missing, decide manually`
-  const b = { OPEN: 'building open', DELAYED_ARRIVAL: 'delayed arrival', EARLY_DEPARTURE: 'early dismissal',
-    UNSCHEDULED_TELEWORK: 'telework day', CLOSED_TELEWORK: 'building closed, work remotely', CLOSED: 'building closed' }[r.recommended]
-  const ag = r.agencies.map((g) => {
-    const bits = []
-    if (g.posture !== r.recommended) bits.push(VERB[g.posture])
-    if (g.field_work === 'suspended') bits.push('stops field work')
-    if (g.field_work === 'restricted') bits.push('limits field work')
-    return bits.length ? `${({ FSA: 'Farm Service Agency (FSA)', NRCS: 'Natural Resources Conservation Service (NRCS)' })[g.code] || g.code} ${bits.join(' and ')}` : null
-  }).filter(Boolean)
-  return `${dayName(r)}: ${[b, ...ag].join(', ')}`
-}
 
 export const fmt = (iso, opts = {}) =>
   iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', hour: 'numeric', minute: '2-digit', ...opts }) : ''
@@ -61,8 +37,6 @@ export const ago = (iso) => {
   const m = Math.round((Date.now() - Date.parse(iso)) / 60000)
   return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : fmt(iso)
 }
-export const dateLong = (r) =>
-  new Date(r.window.start).toLocaleDateString('en-US', { timeZone: 'America/Chicago', weekday: 'long', month: 'long', day: 'numeric' })
 
 // Short, verb-first action for one employee row
 export function personAction(e, ag) {
@@ -93,5 +67,4 @@ export const AGENCY_FULL = {
   FSA: 'Farm Service Agency (FSA)',
   NRCS: 'Natural Resources Conservation Service (NRCS)',
 }
-export const AGENCY_NAME = { FSA: 'Farm Service Agency', NRCS: 'Natural Resources Conservation Service' }
 export const dayLong = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })

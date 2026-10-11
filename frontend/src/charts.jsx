@@ -1,6 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import { useEffect, useState } from 'react'
 
 // Animate from 0 to the target value once mounted (needles turn, water rises)
 function useMounted(delay = 60) {
@@ -81,73 +79,6 @@ export function Wind({ mph = 0 }) {
 }
 
 /* map: facility pin + NWS alert polygons */
-const RADAR_FRAMES = ['m50m', 'm40m', 'm30m', 'm20m', 'm10m', '']
-export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar = false, wind = null, labels = false, hideWindBadge = false }) {
-  const el = useRef(null)
-  const map = useRef(null)
-  const [frame, setFrame] = useState(RADAR_FRAMES.length - 1)
-  useEffect(() => {
-    if (!el.current) return
-    if (!map.current) {
-      map.current = L.map(el.current, { zoomControl: false, attributionControl: true, scrollWheelZoom: false })
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Esri, OpenStreetMap contributors', maxZoom: 16,
-      }).addTo(map.current)
-    }
-    const m = map.current
-    m.eachLayer((ly) => { if (!(ly instanceof L.TileLayer)) m.removeLayer(ly) })
-    const shapes = []
-    alerts.filter((a) => a.geometry).forEach((a) => {
-      const warn = /warning/i.test(a.event)
-      const layer = L.geoJSON(a.geometry, {
-        style: { color: warn ? '#d64545' : '#d9a21b', weight: 2, fillOpacity: 0.18 },
-      }).bindTooltip(a.event, labels ? { permanent: true, direction: 'center', className: 'area-label' } : {}).addTo(m)
-      shapes.push(layer)
-    })
-    const icon = L.divIcon({ className: 'pin', html: '<div class="pin-dot"></div>', iconSize: [34, 34], iconAnchor: [17, 17] })
-    L.marker([lat, lon], { icon }).bindTooltip('USDA Lake Charles Service Center').addTo(m)
-    const group = shapes.length ? L.featureGroup(shapes).getBounds().extend([lat, lon]) : null
-    if (group) m.fitBounds(group, { padding: [16, 16], maxZoom: 11 })
-    else m.setView([lat, lon], zoom)
-    setTimeout(() => m.invalidateSize(), 50)
-  }, [lat, lon, alerts, zoom])
-  useEffect(() => {
-    if (!radar || !map.current) return
-    // NOAA NEXRAD composite via Iowa Environmental Mesonet tiles (free, no key), last 50 minutes looped
-    const layers = RADAR_FRAMES.map((f) => L.tileLayer(`https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913${f ? '-' + f : ''}/{z}/{x}/{y}.png`,
-      { opacity: 0, zIndex: 5, attribution: 'NEXRAD via IEM' }).addTo(map.current))
-    let i = 0
-    const t = setInterval(() => {
-      layers.forEach((ly, j) => ly.setOpacity(j === i ? 0.6 : 0))
-      setFrame(i)
-      i = (i + 1) % layers.length
-    }, 700)
-    return () => { clearInterval(t); layers.forEach((ly) => ly.remove()) }
-  }, [radar])
-  const dirDeg = { N: 0, NNE: 22, NE: 45, ENE: 67, E: 90, ESE: 112, SE: 135, SSE: 157, S: 180, SSW: 202, SW: 225, WSW: 247, W: 270, WNW: 292, NW: 315, NNW: 337 }
-  return (
-    <div className="map-wrap" style={{ height }}>
-      <div ref={el} className="map" style={{ height }} />
-      {labels && alerts.some((a) => a.geometry) && (
-        <div className="map-legend">
-          {[...new Set(alerts.filter((a) => a.geometry).map((a) => a.event))].map((ev) => (
-            <span key={ev}><i className={/warning/i.test(ev) ? 'sw red' : 'sw yellow'} />{ev} area (NWS)</span>
-          ))}
-          <span><i className="sw arrow">➝</i>Wind direction</span>
-        </div>
-      )}
-      {wind && wind.dir && <WindField deg={(dirDeg[wind.dir] ?? 0) + 180} mph={wind.mph} />}
-      {radar && <div className="map-badge">Radar, last 50 min {frame === RADAR_FRAMES.length - 1 ? '(now)' : `(-${(RADAR_FRAMES.length - 1 - frame) * 10} min)`}</div>}
-      {wind && wind.dir && !hideWindBadge && (
-        <div className="map-wind" title={`Wind from the ${wind.dir}`}>
-          <div className="wind-arrow" style={{ transform: `rotate(${(dirDeg[wind.dir] ?? 0) + 90}deg)` }}>➤</div>
-          <div><b>{wind.mph} mph</b><span>from the {({ N: 'north', S: 'south', E: 'east', W: 'west' })[wind.dir] || wind.dir}</span></div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 /* roads status */
 export function RoadStatus({ weatherClosures = 0, manual = 'open' }) {
   const bad = manual === 'impassable' || weatherClosures >= 3
@@ -159,45 +90,5 @@ export function RoadStatus({ weatherClosures = 0, manual = 'open' }) {
       <div className="road-lane"><span className="car">🚗</span></div>
       <div className="road-word">{word}</div>
     </div>
-  )
-}
-
-/* level scale used on agency cards */
-export function LevelScale({ level, th }) {
-  return (
-    <div className="scale">
-      {[0, 1, 2, 3, 4].map((n) => {
-        const tag = n === th.close ? 'Close' : n === th.adjust ? 'Adjust' : n === th.field_suspend ? 'Stop field' : ''
-        return (
-          <div key={n} className={`sc sc${n} ${n <= level ? 'on' : ''} ${n === level ? 'cur' : ''}`}>
-            <b>{n}</b>{tag && <i>{tag}</i>}
-            {n === level && <span className="you">Now</span>}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-/* wind vector field: a grid of arrows pointing where the wind blows, drifting gently */
-function WindField({ deg, mph }) {
-  const cols = 9, rows = 6
-  const len = Math.min(34, 14 + mph * 0.8)
-  const dur = Math.max(1.2, 4 - mph / 12)
-  return (
-    <svg className="windfield" viewBox="0 0 900 600" preserveAspectRatio="none">
-      {Array.from({ length: rows * cols }).map((_, i) => {
-        const x = (i % cols) * 100 + 50 + (Math.floor(i / cols) % 2 ? 25 : -25)
-        const y = Math.floor(i / cols) * 100 + 50
-        return (
-          <g key={i} transform={`translate(${x} ${y}) rotate(${deg - 90})`}>
-            <g className="wf-arrow" style={{ animationDuration: `${dur}s`, animationDelay: `${(i % 5) * dur / 5}s` }}>
-              <line x1={-len / 2} y1="0" x2={len / 2} y2="0" />
-              <path d={`M${len / 2} 0 l-7 -5 M${len / 2} 0 l-7 5`} />
-            </g>
-          </g>
-        )
-      })}
-    </svg>
   )
 }

@@ -1,6 +1,6 @@
 """Live situation for the start page: current conditions, alerts with map shapes, and a 7-day outlook.
 The outlook runs the same deterministic rules for each future work day. No AI here."""
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import agent
