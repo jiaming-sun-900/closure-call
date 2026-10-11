@@ -9,14 +9,15 @@ from sources import gauge as gauge_src
 from sources import nws, outage as outage_src, roads as roads_src
 from sources.http import SourceError
 
-EMOJI = [("hurricane", "🌀"), ("tropical", "🌀"), ("thunder", "⛈"), ("snow", "❄️"), ("rain", "🌧"), ("shower", "🌦"),
-         ("drizzle", "🌦"), ("fog", "🌫"), ("partly", "⛅"), ("mostly cloudy", "🌥"), ("cloudy", "☁️"), ("wind", "💨"),
-         ("sunny", "☀️"), ("clear", "☀️")]
+# \ufe0f forces the color emoji glyph; without it some symbols (⛈ 🌤 🌥) render as black text icons
+EMOJI = [("hurricane", "🌀"), ("tropical", "🌀"), ("thunder", "⛈\ufe0f"), ("snow", "❄\ufe0f"), ("rain", "🌧\ufe0f"),
+         ("shower", "🌦\ufe0f"), ("drizzle", "🌦\ufe0f"), ("fog", "🌫\ufe0f"), ("partly", "⛅"), ("mostly cloudy", "🌥\ufe0f"),
+         ("cloudy", "☁\ufe0f"), ("wind", "💨"), ("sunny", "☀\ufe0f"), ("clear", "☀\ufe0f")]
 
 
 def weather_emoji(short: str) -> str:
     s = (short or "").lower()
-    return next((e for k, e in EMOJI if k in s), "🌤")
+    return next((e for k, e in EMOJI if k in s), "🌤\ufe0f")
 
 
 def _try(fn):
