@@ -243,7 +243,7 @@ const HOW = [
   ['Write', 'A Strands agent writes the recommendation, the reasons and a notice for each role. It cannot change the level.'],
   ['Decide', 'The manager picks the status and writes a reason. The decision and all evidence go on record.'],
 ]
-const STACK = ['Anthropic Claude Haiku 5.5', 'National Weather Service', 'NOAA Water', 'Entergy Outages', 'LA 511', 'FastAPI', 'React']
+const STACK = ['Akamai Cloud (Linode)', 'Anthropic Claude Haiku 5.5', 'National Weather Service', 'NOAA Water', 'Entergy Outages', 'LA 511', 'FastAPI', 'React']
 
 export function About() {
   return (
