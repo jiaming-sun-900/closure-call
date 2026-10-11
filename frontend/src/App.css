@@ -612,3 +612,34 @@ body, .card, .tile, .block, .tag, .bubble, .draft pre { color: var(--ink); }
 .p-ch .ch { font-size: 13px; font-weight: 700; border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px; }
 .hero-note.red { color: var(--red); } .hero-note.yellow { color: #8a6100; }
 @media (max-width: 900px) { .side nav.tabs button { font-size: 14px; font-weight: 800; min-height: 48px; } }
+
+/* v12: results layout, sketch 2 */
+.results-page .res-grid { grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; }
+.results-page .res-side { position: static; }
+.res-head { margin-bottom: 4px; }
+.res-name { font-size: 40px; font-weight: 900; letter-spacing: -.8px; line-height: 1.1; color: var(--ink); margin: 4px 0 6px; }
+.results-page .tiles { margin-top: 18px; }
+.side-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.side-btns .btn { justify-content: center; }
+.fc-h { font-size: 22px; font-weight: 900; margin: 0 0 10px; }
+.fc-list { display: grid; gap: 8px; }
+.fc-row { display: grid; grid-template-columns: 64px 40px 92px 1fr; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.fc-row.next { border: 2px solid var(--usda); }
+.fc-row.off { background: #f4f6f5; }
+.fc-day { display: grid; line-height: 1.15; }
+.fc-day b { font-size: 17px; font-weight: 900; }
+.fc-day span { font-size: 13px; font-weight: 700; color: var(--muted); }
+.fc-e { font-size: 28px; text-align: center; }
+.fc-wx { font-size: 15px; font-weight: 800; white-space: nowrap; }
+.fc-wx span { font-size: 13px; font-weight: 700; }
+.fc-rec { display: grid; justify-items: end; text-align: right; font-size: 14px; font-weight: 800; gap: 2px; }
+.fc-row.off .fc-rec { color: var(--muted); }
+.fc-badge { font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 99px; background: var(--usda); color: #fff; white-space: nowrap; }
+.results-page .ask { margin-top: 0; }
+.card.rec { margin-top: 18px; }
+.card.rec.hypo { background: var(--blue-l); }
+.tldr-h { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin: 6px 0 6px; }
+.tldr { margin: 0 0 14px; padding-left: 20px; display: grid; gap: 4px; font-size: 18px; }
+.tldr b { font-weight: 900; }
+.results-page > .blocks { margin-top: 24px; }
+@media (max-width: 1100px) { .results-page .res-grid { grid-template-columns: 1fr; } .res-name { font-size: 30px; } }

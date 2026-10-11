@@ -3,12 +3,11 @@ import { api } from './api'
 import Leaf from './Leaf'
 import { OutageGauge, RoadStatus, WaterGauge, Wind } from './charts'
 import {
-  AGENCY_FULL, AGENCY_NAME, CHANNEL, LEVEL, POSTURE, STATUS, agencyAction, agencyTone, agencyWord, ago, clean,
-  fmt, levelTone, oneLiner, personAction,
+  AGENCY_FULL, AGENCY_NAME, CHANNEL, LEVEL, POSTURE, STATUS, ago, clean,
+  fmt, levelTone, personAction,
 } from './lib'
 
 const FACILITY = 'USDA Lake Charles Service Center'
-const PLACE = 'Calcasieu Parish, Louisiana'
 
 export const STEP_META = {
   get_nws_alerts: ['NWS alerts'],
@@ -58,14 +57,6 @@ export function CopyBtn({ text, label = 'Copy to email' }) {
     </button>
   )
 }
-function FacilityTitle({ small }) {
-  return (
-    <div className={`fac-title ${small ? 'small' : ''}`}>
-      <div className="fac-name">{FACILITY}</div>
-      <div className="fac-place">{PLACE}</div>
-    </div>
-  )
-}
 function DateLines({ asOf, live = true }) {
   return (
     <div className="date-lines">
@@ -78,25 +69,20 @@ function DateLines({ asOf, live = true }) {
 export function Outlook({ days, nextDay }) {
   if (!days) return null
   return (
-    <section className="outlook">
-      <h2 className="sec-h">7-day forecast</h2>
-      <div className="days">
+    <section className="fc">
+      <h2 className="fc-h">7-day forecast</h2>
+      <div className="fc-list">
         {days.map((d) => {
-          const tone = d.closed ? 'grey' : levelTone(d.level)
-          const badge = d.date === days[0].date ? ['day-today', 'Today'] : d.date === nextDay ? ['day-next', 'Next workday'] : null
+          const badge = d.date === days[0].date ? 'Today' : d.date === nextDay ? 'Next workday' : null
           return (
-            <div key={d.date} className={`day ${tone}`} title={d.short || ''}>
-              {badge && <div className={badge[0]}>{badge[1]}</div>}
-              <div className="day-w">{d.weekday}</div>
-              <div className="day-d">{d.label}</div>
-              <div className="day-e">{d.emoji}</div>
-              <div className="day-wx">{d.temp_f != null ? `${d.temp_f}°` : ''}{d.precip_pct ? ` · 💧${d.precip_pct}%` : ''}</div>
-              {d.closed ? <div className="day-closed">Office closed</div> : (
-                <>
-                  <div className="day-lv">Hazard {d.level}</div>
-                  <div className="day-rec">{POSTURE[d.recommended]?.word || 'Decide'}</div>
-                </>
-              )}
+            <div key={d.date} className={`fc-row ${d.date === nextDay ? 'next' : ''} ${d.closed ? 'off' : ''}`} title={d.short || ''}>
+              <div className="fc-day"><b>{d.weekday}</b><span>{d.label}</span></div>
+              <div className="fc-e">{d.emoji}</div>
+              <div className="fc-wx">{d.temp_f != null ? `${d.temp_f}°` : ''}{d.precip_pct ? <span> 💧{d.precip_pct}%</span> : null}</div>
+              <div className="fc-rec">
+                {badge && <span className="fc-badge">{badge}</span>}
+                <span>{d.closed ? 'Office closed' : `${POSTURE[d.recommended]?.word || 'Decide'}, hazard ${d.level}`}</span>
+              </div>
             </div>
           )
         })}
@@ -179,7 +165,14 @@ export function Progress({ sq, dayIso }) {
 const maxLevel = (r, kind) => Math.max(0, ...r.signals.filter((s) => s.kind === kind).map((s) => s.level))
 const Missing = () => <div>Data unavailable, treated as unknown</div>
 
-export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onDecide, pendingQuestion, clearPending, busy }) {
+const agencyLine = (g) => {
+  const bits = [POSTURE[g.posture].action]
+  if (g.field_work === 'suspended') bits.push('stop field work')
+  if (g.field_work === 'restricted') bits.push('limit field work')
+  return bits.join(', ')
+}
+
+export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, pendingQuestion, clearPending, busy }) {
   const [scenario, setScenario] = useState(null)
   useEffect(() => { window.scrollTo(0, 0) }, [a.id])
   const r = scenario ? scenario.rules : a.rules
@@ -189,7 +182,6 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onD
   const work = inp.forecast?.periods?.filter((p) => Date.parse(p.start) >= w0 && Date.parse(p.start) < w1) || []
   const peak = work.length ? work.reduce((m, p) => (p.wind_mph > m.wind_mph ? p : m)) : null
   const fc = inp.gauge?.forecast?.filter((p) => Date.parse(p.t) <= Date.parse(r.window.start)).pop()
-  const bTone = r.recommended ? POSTURE[r.recommended].tone : 'red'
   const avail = scenario ? scenario.availability : a.notifications.availability
   const nowWind = scenario?.inputs?.forecast ? peak : inp.forecast?.periods?.[0]
   // later days that look worse than the next workday
@@ -197,44 +189,14 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onD
 
   return (
     <div className="page results-page">
-      <div className="res-top">
-        <div>
-          <FacilityTitle small />
-          <DateLines asOf={a.as_of} />
-        </div>
-        <div className="row">
-          <button className="btn green" onClick={onReplay}>Replay analysis</button>
-          <button className="btn green" onClick={onReanalyze} disabled={busy}>Re-analyze</button>
-        </div>
-      </div>
-
       <div className="res-grid">
         <div className="res-main">
-          {scenario && (
-            <div className="hypo-bar">
-              <span>Hypothetical, not saved: {scenario.changed.join(', ')}</span>
-              <button className="btn sm" onClick={() => setScenario(null)}>Back to live data</button>
-            </div>
-          )}
-          <section className={`hero reveal ${scenario ? 'hypo' : ''}`} key={'h' + (scenario ? scenario.changed.join() : 'live')}>
-            <div className="hero-text">
-              <h1>{oneLiner(r)}</h1>
-              <div className="hero-chips">
-                <span className={`chip ${levelTone(r.level)}`}>Hazard {r.level} of 4: {LEVEL[r.level].name}</span>
-                <span className="chip blue">Confidence {r.confidence.toLowerCase()}</span>
-              </div>
-              {live.length > 0 && <div className="hero-note red">Active NWS alerts: {[...new Set(live.map((x) => x.event))].join(', ')}</div>}
-              {worse.length > 0 && <div className="hero-note yellow">Heads up: {worse.map((d) => `${d.weekday} ${d.label} hazard ${d.level} (${POSTURE[d.recommended]?.word || 'decide'})`).join(', ')}</div>}
-            </div>
-          </section>
-
-          <section className="tags">
-            <Tag tone={bTone} name="Building" word={r.recommended ? POSTURE[r.recommended].word : 'Decide'} sub={r.recommended ? POSTURE[r.recommended].action : 'Weather data missing'} />
-            {r.agencies.map((g) => <Tag key={g.code + r.level} tone={agencyTone(g)} name={AGENCY_FULL[g.code]} word={agencyWord(g)} sub={agencyAction(g)} />)}
-          </section>
+          <div className="res-head">
+            <h1 className="res-name">{FACILITY}</h1>
+            <DateLines asOf={a.as_of} />
+          </div>
 
           <section className="tiles">
-            {situation?.outlook && <div className="tile wide reveal"><Outlook days={situation.outlook} nextDay={r.window.date} /></div>}
             <div className="tile reveal">
               <div className="tile-h">River <span className={`dot ${levelTone(maxLevel(r, 'gauge'))}`} /></div>
               {inp.gauge ? <div className="river-row"><WaterGauge key={inp.gauge.stage_ft} stage={inp.gauge.stage_ft} forecast={fc?.ft} stages={inp.gauge.flood_stages_ft} height={170} />
@@ -255,53 +217,63 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onD
             </div>
           </section>
 
-
-          <div className="blocks">
-            <Block title="Thresholds and sources" sub={`${r.signals.length} signals`}>
-              <SignalList signals={r.signals} />
-              <h4>What would change this</h4>
-              <ul className="bul">{r.what_would_change.map((w, i) => <li key={i}>{clean(w)}</li>)}</ul>
-            </Block>
-            {!scenario && <Notices a={a} />}
-            <Block title="People" sub={`${avail.total.on_site} on site, ${avail.total.telework} remote, ${avail.total.unavailable} unavailable`}>
-              {!scenario ? <People a={a} /> : <p>Staff details are shown for live data only.</p>}
-            </Block>
-            {!scenario && <Block title="Building check" sub="Manual report"><FacilityCheck fs={a.inputs.facility_status} onSaved={onReanalyze} /></Block>}
-          </div>
-          <div className="center go"><button className="btn green huge" onClick={onDecide}>Go to decision →</button></div>
-        </div>
-
-        <aside className="res-side">
-          <section className="card">
+          {scenario && (
+            <div className="hypo-bar">
+              <span>Hypothetical, not saved: {scenario.changed.join(', ')}</span>
+              <button className="btn sm" onClick={() => setScenario(null)}>Back to live data</button>
+            </div>
+          )}
+          <section className={`card rec ${scenario ? 'hypo' : ''}`} key={'r' + (scenario ? scenario.changed.join() : 'live')}>
             <div className="card-h">Agent recommendation</div>
+            <div className="tldr-h">TL;DR, next workday ({r.window.day})</div>
+            <ul className="tldr">
+              <li><b>Building:</b> {r.recommended ? POSTURE[r.recommended].action : 'Weather data missing, decide manually'}</li>
+              {r.agencies.map((g) => <li key={g.code}><b>{AGENCY_FULL[g.code] || g.code}:</b> {agencyLine(g)}</li>)}
+              <li><b>Hazard:</b> {r.level} of 4 ({LEVEL[r.level].name}), confidence {r.confidence.toLowerCase()}</li>
+              {live.length > 0 && <li><b>Active NWS alerts:</b> {[...new Set(live.map((x) => x.event))].join(', ')}</li>}
+              {worse.length > 0 && <li><b>Heads up:</b> {worse.map((d) => `${d.weekday} ${d.label} hazard ${d.level} (${POSTURE[d.recommended]?.word || 'decide'})`).join(', ')}</li>}
+            </ul>
+            {scenario ? <p className="small">The paragraph below is for live data. Hypotheticals are never saved.</p> : null}
             <p className="rationale">{clean(a.rationale)}</p>
             <div className="row between">
               <span className="small">{a.rationale_by === 'template' ? 'Rules decide the level. Template text.' : 'Rules decide the level. The agent wrote the words.'}</span>
               <CopyBtn text={clean(a.rationale)} />
             </div>
           </section>
+        </div>
+
+        <aside className="res-side">
+          <div className="side-btns">
+            <button className="btn green" onClick={onReplay}>Replay analysis</button>
+            <button className="btn green" onClick={onReanalyze} disabled={busy}>Re-analyze</button>
+          </div>
+          {situation?.outlook && <Outlook days={situation.outlook} nextDay={r.window.date} />}
           <Ask a={a} onScenario={setScenario} pending={pendingQuestion} clearPending={clearPending} />
         </aside>
       </div>
+
+      <div className="blocks">
+        <Block title="Thresholds and sources" sub={`${r.signals.length} signals`}>
+          <SignalList signals={r.signals} />
+          <h4>What would change this</h4>
+          <ul className="bul">{r.what_would_change.map((w, i) => <li key={i}>{clean(w)}</li>)}</ul>
+        </Block>
+        {!scenario && <Notices a={a} />}
+        <Block title="People" sub={`${avail.total.on_site} on site, ${avail.total.telework} remote, ${avail.total.unavailable} unavailable`}>
+          {!scenario ? <People a={a} /> : <p>Staff details are shown for live data only.</p>}
+        </Block>
+        {!scenario && <Block title="Building check" sub="Manual report"><FacilityCheck fs={a.inputs.facility_status} onSaved={onReanalyze} /></Block>}
+      </div>
+      <div className="center go"><button className="btn green huge" onClick={onDecide}>Go to decision →</button></div>
     </div>
   )
 }
-
 function Block({ title, sub, children }) {
   return (
     <details className="block">
       <summary><span>{title}</span>{sub && <span className="block-sub">{sub}</span>}</summary>
       <div className="block-body">{children}</div>
     </details>
-  )
-}
-function Tag({ tone, name, word, sub }) {
-  return (
-    <div className={`tag ${tone} reveal`}>
-      <div className="tag-name">{name}</div>
-      <div className="tag-word">{word}</div>
-      {sub && <div className="tag-sub">{sub}</div>}
-    </div>
   )
 }
 
