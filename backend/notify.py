@@ -3,6 +3,7 @@
 Recipients are chosen by rules; the agent may rewrite the wording of the drafts, never who gets them.
 """
 import json
+from datetime import date
 from pathlib import Path
 
 DATA = Path(__file__).parent / "data"
@@ -85,7 +86,7 @@ def program_status(prog: dict, ag: dict) -> tuple[str, str]:
 def build_package(r: dict, facility: dict) -> dict:
     roster = load_roster()
     w = r["window"]
-    when = f"{w['day']} {w['date']}"
+    when = date.fromisoformat(w["date"]).strftime("%A, %b %-d")
     ags = {a["code"]: a for a in r["agencies"]}
     urgent = r["shelter"] or r["level"] >= 3
     sig = r["deciding"][0] if r["deciding"] else None
@@ -127,7 +128,7 @@ def build_package(r: dict, facility: dict) -> dict:
     # ---- role briefings
     roles = [{
         "role": "facility", "title": "Facility manager", "to": facility["manager"]["name"], "concern": "The building",
-        "subject": f"{facility['name']}: {r['recommended_label'] or 'decision needed'} — {when}",
+        "subject": f"{facility['name']}: {r['recommended_label'] or 'decision needed'}, {when}",
         "body": "\n".join([
             f"Recommended building status for {when}: {r['recommended_label']}.",
             f"Driver: {why}.",
@@ -155,13 +156,13 @@ def build_package(r: dict, facility: dict) -> dict:
         roles.append({
             "role": "program", "agency": code, "title": f"{code} program manager", "to": f"{code} program leads",
             "concern": "Can the work continue?", "programs": programs[code],
-            "subject": f"{code} program continuity — {when}",
+            "subject": f"{code} program continuity, {when}",
             "body": "\n".join(f"{p['name']}: {p['status'].upper()} — {p['note']}" for p in programs[code]),
         })
     roles.append({
         "role": "executive", "title": "Executive summary", "to": "Office of the Secretary (via State Executive Director)",
         "concern": "What's affected · who can work",
-        "subject": f"Weather status — {facility['name']}, {facility['parish']}, {when}",
+        "subject": f"Weather status: {facility['name']}, {facility['parish']}, {when}",
         "body": "\n".join([
             f"BLUF: {r['recommended_label']} on {when}. Hazard {r['level']}/4 ({r['level_label']}), confidence {r['confidence']}.",
             f"Cause: {why}.",

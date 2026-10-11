@@ -3,7 +3,7 @@ import { api } from './api'
 import Leaf from './Leaf'
 import { OutageGauge, RoadStatus, WaterGauge, Wind } from './charts'
 import {
-  AGENCY_FULL, AGENCY_NAME, CHANNEL, LEVEL, POSTURE, STATUS, ago, clean,
+  AGENCY_FULL, CHANNEL, LEVEL, POSTURE, STATUS, ago, clean,
   dayLong, fmt, levelTone, personAction,
 } from './lib'
 
@@ -362,22 +362,36 @@ function Block({ title, sub, children }) {
   )
 }
 
+const ROLE_GROUPS = [
+  ['Building', (x) => x.role === 'facility', () => 'Facility Manager'],
+  ['Farm Service Agency (FSA)', (x) => x.agency === 'FSA', (x) => (x.role === 'agency' ? 'Team Manager' : 'Program Manager')],
+  ['Natural Resources Conservation Service (NRCS)', (x) => x.agency === 'NRCS', (x) => (x.role === 'agency' ? 'Team Manager' : 'Program Manager')],
+  ['Leadership', (x) => x.role === 'executive', () => 'Executive Summary'],
+]
 function Notices({ a }) {
   const pkg = a.notifications
   const [tab, setTab] = useState(0)
   const role = pkg.roles[tab]
-  const title = (x) => x.agency ? x.title.replace(x.agency, AGENCY_NAME[x.agency]) : x.title
   return (
     <Block title="Notice Drafts" sub="6 roles, preview only">
-      <div className="role-tabs">
-        {pkg.roles.map((x, i) => <button key={i} className={i === tab ? 'on' : ''} onClick={() => setTab(i)}>{title(x)}</button>)}
-      </div>
-      <div className="draft">
-        <div className="draft-to">To: {clean(role.to)}</div>
-        <div className="draft-subj">{clean(role.subject)}</div>
-        <pre>{clean(role.body)}</pre>
-        {role.programs && <div className="progs">{role.programs.map((p) => <span key={p.name} className={`chip ${p.status === 'continues' ? 'green' : p.status === 'limited' ? 'yellow' : 'red'}`}>{p.name}: {p.status}</span>)}</div>}
-        <div className="row between"><span className="small">{role.written_by === 'agent' ? 'Drafted by the agent' : 'Template draft'}</span><CopyBtn text={`${clean(role.subject)}\n\n${clean(role.body)}`} label="Copy" /></div>
+      <div className="notices">
+        <nav className="note-list">
+          {ROLE_GROUPS.map(([group, match, name]) => (
+            <div key={group} className="note-group">
+              <div className="note-gh">{group}</div>
+              {pkg.roles.map((x, i) => match(x) && (
+                <button key={i} className={i === tab ? 'on' : ''} onClick={() => setTab(i)}>{name(x)}</button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <div className="draft">
+          <div className="draft-to">To: {clean(role.to)}</div>
+          <div className="draft-subj">{clean(role.subject)}</div>
+          <pre>{clean(role.body)}</pre>
+          {role.programs && <div className="progs">{role.programs.map((p) => <span key={p.name} className={`chip ${p.status === 'continues' ? 'green' : p.status === 'limited' ? 'yellow' : 'red'}`}>{p.name}: {p.status}</span>)}</div>}
+          <div className="row between"><span className="small">{role.written_by === 'agent' ? 'Drafted by the agent' : 'Template draft'}</span><CopyBtn text={`${clean(role.subject)}\n\n${clean(role.body)}`} label="Copy" /></div>
+        </div>
       </div>
     </Block>
   )
