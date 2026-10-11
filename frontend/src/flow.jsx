@@ -485,7 +485,7 @@ function Ask({ a, onScenario, pending, clearPending }) {
       </div>
       <div className="quick">{QUICK.map((x) => <button key={x} disabled={busy} onClick={() => send(x)}>{x}</button>)}</div>
       <form className="ask-row" onSubmit={(e) => { e.preventDefault(); send(q) }}>
-        <input className="inp" placeholder="Ask about this recommendation…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="inp" placeholder="Ask anything" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className="btn green" disabled={busy || !q.trim()}>Ask</button>
       </form>
     </section>
