@@ -152,7 +152,6 @@ export function Progress({ sq, dayIso }) {
         <Leaf size={52} />
         <div>
           <div className="ps-t">Analyzing {FACILITY}</div>
-          <div className="ps-s">Seven live checks run in parallel, then the rules decide.</div>
         </div>
       </div>
       <div className="pgrid">{DATA_TOOLS.map(card)}</div>
