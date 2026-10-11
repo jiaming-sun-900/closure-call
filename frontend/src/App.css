@@ -575,3 +575,4 @@ body, .card, .tile, .block, .tag, .bubble, .draft pre { color: var(--ink); }
 .startpage .outlook { flex-shrink: 0; }
 .startpage .day { padding: 16px 8px 14px; }
 @media (max-width: 900px) { .startpage { min-height: 0; } .start-col { width: 100%; } }
+.day-today { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--blue); color: #fff; font-size: 13px; font-weight: 800; padding: 2px 10px; border-radius: 99px; white-space: nowrap; }

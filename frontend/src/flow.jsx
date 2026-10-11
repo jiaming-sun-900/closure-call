@@ -87,6 +87,7 @@ export function Outlook({ days, selected, onPick, busy }) {
           return (
             <button key={d.date} className={`day ${tone} ${selected === d.date ? 'sel' : ''}`} disabled={!!d.closed || busy}
               onClick={() => onPick(d.date)} title={d.short || ''}>
+              {d.date === days[0].date && <div className="day-today">Today</div>}
               <div className="day-w">{d.weekday}</div>
               <div className="day-d">{d.label}</div>
               <div className="day-e">{d.emoji}</div>
