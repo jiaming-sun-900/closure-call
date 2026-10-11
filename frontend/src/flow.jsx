@@ -138,9 +138,9 @@ export function Outlook({ days, onPick, busy }) {
 export function StartPage({ onStart }) {
   return (
     <div className="page startpage simple fade">
+      <LocalTime />
       <div className="sp-center">
         <h1 className="sp-name">{FACILITY}</h1>
-        <LocalTime />
         <button className="start-btn" onClick={() => onStart()}>Start Analysis</button>
       </div>
     </div>

@@ -800,3 +800,4 @@ button.fc-row:disabled { cursor: wait; }
 .sp-time { position: absolute; top: 0; right: 0; margin: 0; align-items: flex-end; gap: 0; }
 .sp-time b { font-size: 17px; font-weight: 800; color: var(--muted); }
 .sp-time span:last-child { font-size: 14px; font-weight: 600; color: var(--muted); }
+.sp-time { left: 0; right: auto; align-items: flex-start; }
