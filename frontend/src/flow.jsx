@@ -117,17 +117,19 @@ export function StartPage({ situation, onStart, selected, setSelected }) {
           <h1 className="sp-name">{FACILITY}</h1>
           <div className="sp-meta">
             <span>📍 5417 Gerstner Memorial Dr, Lake Charles, {PLACE}</span>
-            {s && <span>🕒 Data updated {ago(s.as_of)}</span>}
             {s && <span>📅 Decision for {dayLong(selected || s.next_workday)}</span>}
           </div>
         </div>
-        <button className="start-btn" onClick={() => onStart()}>Start analysis</button>
+        <div className="start-col">
+          <button className="start-btn" onClick={() => onStart()}>Start analysis</button>
+          <div className="start-note">🕒 Data updated {s ? ago(s.as_of) : '…'}</div>
+        </div>
       </header>
 
       <section className="sp-live">
         <div className="sp-map">
           <AlertMap lat={30.163142} lon={-93.17974} alerts={s?.alerts || []} height="100%" zoom={8} labels
-            wind={s?.current && { dir: s.current.wind_dir, mph: s.current.wind_mph }} />
+            wind={s?.current && { dir: s.current.wind_dir, mph: s.current.wind_mph }} hideWindBadge />
         </div>
         <div className="sp-stats">
           <LiveStat icon={s?.current?.emoji || '🌡'} label="Temperature" value={s?.current ? `${s.current.temp_f}°F` : '…'} note={s?.current?.short} tone="blue" />

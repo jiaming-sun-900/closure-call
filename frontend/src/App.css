@@ -563,3 +563,15 @@ body, .card, .tile, .block, .tag, .bubble, .draft pre { color: var(--ink); }
   .sp-stats .ls-v { font-size: 32px; }
 }
 .content:has(.startpage) { padding-bottom: 20px; }
+
+/* ===== v7: start column, fill the screen ===== */
+.content:has(.startpage) { padding-top: 24px; }
+.startpage { min-height: calc(100vh - 44px); }
+.sp-head { align-items: center; padding-right: 70px; }
+.start-col { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; }
+.start-col .start-btn { margin-top: 0; }
+.start-note { font-size: 17px; font-weight: 700; }
+.sp-live { flex: 1 1 auto; height: auto; min-height: 360px; }
+.startpage .outlook { flex-shrink: 0; }
+.startpage .day { padding: 16px 8px 14px; }
+@media (max-width: 900px) { .startpage { min-height: 0; } .start-col { width: 100%; } }

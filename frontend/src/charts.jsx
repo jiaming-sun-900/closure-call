@@ -82,7 +82,7 @@ export function Wind({ mph = 0 }) {
 
 /* 🗺 map: facility pin + NWS alert polygons */
 const RADAR_FRAMES = ['m50m', 'm40m', 'm30m', 'm20m', 'm10m', '']
-export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar = false, wind = null, labels = false }) {
+export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar = false, wind = null, labels = false, hideWindBadge = false }) {
   const el = useRef(null)
   const map = useRef(null)
   const [frame, setFrame] = useState(RADAR_FRAMES.length - 1)
@@ -138,7 +138,7 @@ export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar 
       )}
       {wind && wind.dir && <WindField deg={(dirDeg[wind.dir] ?? 0) + 180} mph={wind.mph} />}
       {radar && <div className="map-badge">📡 Radar, last 50 min {frame === RADAR_FRAMES.length - 1 ? '(now)' : `(-${(RADAR_FRAMES.length - 1 - frame) * 10} min)`}</div>}
-      {wind && wind.dir && (
+      {wind && wind.dir && !hideWindBadge && (
         <div className="map-wind" title={`Wind from the ${wind.dir}`}>
           <div className="wind-arrow" style={{ transform: `rotate(${(dirDeg[wind.dir] ?? 0) + 90}deg)` }}>➤</div>
           <div><b>{wind.mph} mph</b><span>from the {({ N: 'north', S: 'south', E: 'east', W: 'west' })[wind.dir] || wind.dir}</span></div>
