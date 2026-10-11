@@ -44,17 +44,16 @@ export default function App() {
 
   const go = (k) => { window.location.hash = k; setPage(k); window.scrollTo(0, 0) }
 
-  const start = (day = null, question = null) => {
+  const start = (day = null, land = 'results') => {
     stop.current?.()
     sq.reset(); setError(null); setRunning('live')
-    if (question) setPendingQ(question)
     const target = day || null
     stop.current = streamAssess(null, async (ev) => {
       if (ev.type === 'step') sq.push(ev)
       else if (ev.type === 'result') {
         await sq.drained()
         setTimeout(() => {
-          setA(ev.assessment); setChosen(ev.assessment.rules.recommended); setRunning(null); go('results'); loadSituation()
+          setA(ev.assessment); setChosen(ev.assessment.rules.recommended); setRunning(null); go(land); loadSituation()
         }, 500)
       } else if (ev.type === 'error') { setError(ev.message); setRunning(null) }
     }, target)
@@ -92,7 +91,8 @@ export default function App() {
               onReanalyze={() => start(a.rules.window.chosen ? a.rules.window.date : null)} onDecide={() => go('decide')}
               onPickDay={(d) => { setSelectedDay(d); start(d) }}
               pendingQuestion={pendingQ} clearPending={() => setPendingQ(null)} /> : <StartPage onStart={() => { setSelectedDay(null); start(null) }} />)}
-            {page === 'decide' && <Decide a={a} situation={situation} chosen={chosen} setChosen={setChosen} go={go} />}
+            {page === 'decide' && <Decide a={a} situation={situation} chosen={chosen} setChosen={setChosen} go={go}
+              onPickDay={(d) => { setSelectedDay(d); start(d, 'decide') }} />}
             {page === 'records' && <Records />}
             {page === 'settings' && <Settings />}
             {page === 'about' && <About />}

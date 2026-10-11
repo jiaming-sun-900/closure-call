@@ -5,12 +5,12 @@ import Leaf from './Leaf'
 import { POSTURE, agencyAction, clean, dayLong, fmt } from './lib'
 
 /* ---------- Decide ---------- */
-export function Decide({ a, situation, chosen, setChosen, go }) {
+export function Decide({ a, situation, chosen, setChosen, go, onPickDay }) {
   if (!a) return <div className="page start fade"><h2 className="page-h">Make the Call</h2><p className="quiet">Run an analysis first.</p><button className="btn green huge" onClick={() => go('start')}>Start Analysis</button></div>
-  return <DecideInner a={a} situation={situation} chosen={chosen} setChosen={setChosen} go={go} />
+  return <DecideInner key={a.id} a={a} situation={situation} chosen={chosen} setChosen={setChosen} go={go} onPickDay={onPickDay} />
 }
 
-function DecideInner({ a, situation, chosen, setChosen, go }) {
+function DecideInner({ a, situation, chosen, setChosen, go, onPickDay }) {
   const r = a.rules
   const [custom, setCustom] = useState('')
   const [reason, setReason] = useState('')
@@ -31,6 +31,20 @@ function DecideInner({ a, situation, chosen, setChosen, go }) {
     <div className="page decide-page">
       <h2 className="page-h">Make the Call</h2>
       <p className="dec-when">{whenNote(r.window, situation?.outlook?.[0])}</p>
+      {situation?.outlook?.length > 0 && (
+        <section className="dec-sec">
+          <h3 className="dec-h">Pick a Day</h3>
+          <div className="day-pick">
+            {situation.outlook.map((d) => (
+              <button key={d.date} className={d.date === r.window.date ? 'on' : ''} disabled={d.date === r.window.date}
+                onClick={() => onPickDay(d.date)}>
+                <b>{d.weekday}</b><span>{d.label}</span><i>{d.closed || 'Workday'}</i>
+              </button>
+            ))}
+          </div>
+          <div className="quiet small">Picking another day runs a fresh analysis for that day, so the decision is saved with its own evidence.</div>
+        </section>
+      )}
       <section className="dec-sec">
         <h3 className="dec-h">1. Building Status for {dayLong(r.window.date)}</h3>
         <div className="radios" role="radiogroup">
