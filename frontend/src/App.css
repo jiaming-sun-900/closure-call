@@ -700,3 +700,20 @@ button.fc-row:disabled { cursor: wait; }
 .share { white-space: pre-wrap; font: inherit; font-size: 17px; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin: 0 0 12px; }
 .side-btns { grid-template-columns: 1fr; }
 .side-btns .btn { font-size: 20px; padding: 16px; }
+
+/* v19: sources and thresholds tables */
+.blk-h { font-size: 20px; font-weight: 900; margin: 18px 0 8px; }
+.blk-h:first-child { margin-top: 4px; }
+.src-table { width: 100%; border-collapse: collapse; font-size: 16px; background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.src-table th { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); padding: 10px 14px; background: var(--bg); }
+.src-table td { padding: 12px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+.src-data { font-weight: 900; white-space: nowrap; }
+.src-org { font-size: 18px; font-weight: 900; color: var(--usda-d); }
+.src-kind { display: inline-block; margin-left: 6px; font-size: 12px; font-weight: 800; color: var(--usda); border: 1.5px solid var(--usda); border-radius: 99px; padding: 0 8px; vertical-align: 2px; }
+.src-kind.self { color: #8a6100; border-color: #c99a1a; }
+.src-host { font-size: 14px; color: var(--muted); margin-top: 2px; }
+.src-host a { color: var(--blue); font-weight: 700; }
+.src-at { white-space: nowrap; font-size: 14px; color: var(--muted); }
+.src-lv { font-weight: 900; white-space: nowrap; }
+.src-miss { color: var(--red); font-weight: 800; }
+@media (max-width: 900px) { .src-table { font-size: 14px; } .src-table th:nth-child(4), .src-table td:nth-child(4) { display: none; } }

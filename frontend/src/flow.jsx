@@ -15,7 +15,7 @@ export const STEP_META = {
   get_river_gauge: ['River level'],
   get_power_outages: ['Entergy outages'],
   get_road_closures: ['LA 511 roads'],
-  get_facility_status: ['Building check'],
+  get_facility_status: ['Self-reported checks'],
   get_roster: ['Staff roster'],
   evaluate_rules: ['Rules engine sets the hazard level'],
   draft_notifications: ['Notices prepared'],
@@ -33,20 +33,61 @@ const shortSummary = (s = '') => clean(s)
 export function Evidence({ label = 'Show evidence', children }) {
   return <details className="evidence"><summary>{label}</summary><div className="evidence-body">{children}</div></details>
 }
-export function SignalList({ signals }) {
-  if (!signals.length) return <p>Nothing crossed a threshold.</p>
+// Where every number on the page comes from, so a manager can trust it (or check it)
+export function Sources({ inputs: i, status = {} }) {
+  const fs = i.facility_status
+  const alerts = (i.alerts || []).filter((x) => !/Statement/.test(x.event))
+  const peak = i.forecast?.periods?.length ? Math.max(...i.forecast.periods.slice(0, 48).map((p) => p.wind_mph)) : null
+  const rows = [
+    { data: 'Weather alerts', org: 'National Weather Service', kind: 'Federal', link: 'https://api.weather.gov/alerts/active?zone=LAC019', host: 'api.weather.gov',
+      reading: i.alerts ? (alerts.length ? [...new Set(alerts.map((x) => x.event))].join(', ') : 'No active alerts') : null, at: i.alerts?.[0]?.fetched_at, ok: status.alerts !== 'error' && i.alerts },
+    { data: 'Hourly forecast', org: 'National Weather Service', kind: 'Federal', link: 'https://forecast.weather.gov/MapClick.php?lat=30.1631&lon=-93.1797', host: 'weather.gov',
+      reading: peak != null ? `Peak wind ${peak} mph, next 48 h` : null, at: i.forecast?.fetched_at, ok: !!i.forecast },
+    { data: 'River level', org: 'NOAA National Water Prediction Service', kind: 'Federal', link: 'https://water.noaa.gov/gauges/LCHL1', host: 'water.noaa.gov, gauge LCHL1',
+      reading: i.gauge ? `${i.gauge.stage_ft} ft at ${clean(i.gauge.name)}` : null, at: i.gauge?.fetched_at, ok: !!i.gauge },
+    { data: 'Power outages', org: 'Entergy Louisiana', kind: 'Utility', link: 'https://entergy.datacapable.com/datacapable/v1/entergy/EntergyLouisiana/county', host: 'Entergy outage map data',
+      reading: i.outage ? `${i.outage.customers_out.toLocaleString()} of ${i.outage.customers_served.toLocaleString()} customers out` : null, at: i.outage?.fetched_at, ok: !!i.outage },
+    { data: 'Road closures', org: 'Louisiana DOTD 511', kind: 'State', link: 'https://511la.org', host: '511la.org',
+      reading: i.roads ? `${i.roads.closures} closures within ${i.roads.radius_mi} mi, ${i.roads.weather_related_closures} weather related` : null, at: i.roads?.fetched_at, ok: !!i.roads },
+    { data: 'Building', org: 'Facility manager', kind: 'Self-reported', host: 'Entered in this app',
+      reading: fs ? `Power ${fs.power}, water ${fs.water}, roof ${fs.roof}, roads ${fs.roads}` : null, at: fs?.updated_at, ok: !!fs },
+  ]
   return (
-    <ul className="sig-list">
-      {signals.map((s, i) => (
-        <li key={i}>
-          <b>{clean(s.title)}</b>
-          <span>Observed: {clean(s.observed)}</span>
-          <span>Threshold: {clean(s.threshold)}, exceeded by {clean(s.exceed_by)}</span>
-          <span>Basis: {clean(s.basis)}</span>
-          <span className="src">Source: {clean(s.source)}, {fmt(s.at, { month: 'short', day: 'numeric' })}</span>
-        </li>
-      ))}
-    </ul>
+    <table className="src-table">
+      <thead><tr><th>Data</th><th>Source</th><th>Reading</th><th>Retrieved</th></tr></thead>
+      <tbody>
+        {rows.map((x) => (
+          <tr key={x.data}>
+            <td className="src-data">{x.data}</td>
+            <td>
+              <div className="src-org">{x.org} <span className={`src-kind ${x.kind === 'Self-reported' ? 'self' : ''}`}>{x.kind}</span></div>
+              <div className="src-host">{x.link ? <a href={x.link} target="_blank" rel="noreferrer">{x.host}</a> : x.host}</div>
+            </td>
+            <td>{x.ok ? x.reading : <span className="src-miss">Unavailable, treated as unknown</span>}</td>
+            <td className="src-at">{x.at ? fmt(x.at, { month: 'short', day: 'numeric' }) : ''}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+const shortObs = (s) => clean(s.observed).split(' (')[0].replace(/\.,/, ',')
+export function SignalTable({ signals }) {
+  if (!signals.length) return <p>No reading crossed a threshold.</p>
+  return (
+    <table className="src-table sig-table">
+      <thead><tr><th>Signal</th><th>Reading</th><th>Threshold</th><th>Hazard</th></tr></thead>
+      <tbody>
+        {signals.map((s, i) => (
+          <tr key={i}>
+            <td className="src-data">{clean(s.title)}</td>
+            <td>{shortObs(s)}</td>
+            <td>{clean(s.threshold)}<div className="src-host">Basis: {clean(s.basis)}</div></td>
+            <td className="src-lv">{s.level} of 4</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 export function CopyBtn({ text, label = 'Copy to Email' }) {
@@ -294,16 +335,19 @@ export function ResultsPage({ a, situation, onReanalyze, onDecide, onPickDay, pe
       </div>
 
       <div className="blocks">
-        <Block title="Thresholds and Sources" sub={`${r.signals.length} signals`}>
-          <SignalList signals={r.signals} />
-          <h4>What Would Change This</h4>
+        <Block title="Sources and Thresholds" sub={`6 sources, ${r.signals.length} thresholds crossed`}>
+          <h4 className="blk-h">Data Sources</h4>
+          <Sources inputs={inp} status={a.data_status} />
+          <h4 className="blk-h">Thresholds Crossed</h4>
+          <SignalTable signals={r.signals} />
+          <h4 className="blk-h">What Would Change This</h4>
           <ul className="bul">{r.what_would_change.map((w, i) => <li key={i}>{clean(w)}</li>)}</ul>
         </Block>
         {!scenario && <Notices a={a} />}
         <Block title="People" sub={`${avail.total.on_site} on site, ${avail.total.telework} remote, ${avail.total.unavailable} unavailable`}>
           {!scenario ? <People a={a} /> : <p>Staff details are shown for live data only.</p>}
         </Block>
-        {!scenario && <Block title="Building Check" sub="Manual Report"><FacilityCheck fs={a.inputs.facility_status} onSaved={onReanalyze} /></Block>}
+        {!scenario && <Block title="Self-Reported Checks"><FacilityCheck fs={a.inputs.facility_status} onSaved={onReanalyze} /></Block>}
       </div>
       <div className="center go"><button className="btn green huge" onClick={onDecide}>Go to Decision →</button></div>
     </div>

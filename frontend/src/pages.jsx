@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
-import { CopyBtn, SignalList } from './flow'
+import { CopyBtn, SignalTable, Sources } from './flow'
 import { POSTURE, agencyAction, clean, dayLong, fmt } from './lib'
 
 /* ---------- Decide ---------- */
@@ -114,16 +114,17 @@ export function Records() {
 function Snapshot({ e }) {
   const r = e.rules, i = e.inputs
   return (
+    <>
     <ul className="bul">
       <li>Data as of {fmt(e.as_of, { month: 'short', day: 'numeric' })}</li>
       <li>System advice: {POSTURE[r.recommended]?.action || 'none'}, hazard {r.level} of 4</li>
       <li>{r.agencies.map((g) => `${g.code}: ${agencyAction(g)}`).join('; ')}</li>
-      <li>River: {i.gauge ? `${i.gauge.stage_ft} ft at ${clean(i.gauge.name)}` : 'river data missing'}</li>
-      <li>Power: {i.outage ? `${i.outage.customers_out} of ${i.outage.customers_served} out` : 'outage data missing'}</li>
-      <li>Alerts: {i.alerts ? (i.alerts.map((x) => x.event).join(', ') || 'no alerts') : 'NWS missing'}</li>
-      <li>Building: power {i.facility_status?.power}, water {i.facility_status?.water}, roof {i.facility_status?.roof}, roads {i.facility_status?.roads}</li>
-      <SignalList signals={r.signals} />
     </ul>
+    <h4 className="blk-h">Data Sources</h4>
+    <Sources inputs={i} status={e.data_status || {}} />
+    <h4 className="blk-h">Thresholds Crossed</h4>
+    <SignalTable signals={r.signals} />
+    </>
   )
 }
 
@@ -205,13 +206,13 @@ function ResetFacility() {
   const [msg, setMsg] = useState(null)
   const reset = async () => {
     await api.setStatus({ power: 'ok', water: 'ok', roof: 'ok', roads: 'open', notes: '', updated_by: 'Facility Manager' })
-    setMsg('Building check reset: power, water, roof ok, roads open')
+    setMsg('Self-reported checks reset: power, water, roof ok, roads open')
   }
   return (
     <section className="card fade settings">
-      <div className="card-h">Building Check</div>
+      <div className="card-h">Self-Reported Checks</div>
       <div className="small">Test values (like power out) stay until reset. Re-analyze afterwards.</div>
-      <div className="row" style={{ marginTop: 10 }}><button className="btn green" onClick={reset}>Reset Building Check to All Normal</button></div>
+      <div className="row" style={{ marginTop: 10 }}><button className="btn green" onClick={reset}>Reset Self-Reported Checks to All Normal</button></div>
       {msg && <div className="alert green">{msg}</div>}
     </section>
   )
