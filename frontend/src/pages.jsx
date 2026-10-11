@@ -27,13 +27,13 @@ function DecideInner({ a, chosen, setChosen }) {
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
   return (
-    <div className="page">
+    <div className="page decide-page">
       <h2 className="page-h">Make the Call</h2>
       <section className="dec-sec">
         <h3 className="dec-h">1. Building Status for {dayLong(r.window.date)}</h3>
         <div className="radios" role="radiogroup">
-          {[...r.options.map((o) => ({ key: o.key, label: POSTURE[o.key].action, rec: o.recommended })), { key: 'CUSTOM', label: 'Write my own' }].map((o) => (
-            <label key={o.key} className={`radio ${chosen === o.key ? 'on' : ''}`}>
+          {[...r.options.map((o) => ({ key: o.key, label: POSTURE[o.key].action, rec: o.recommended })), { key: 'CUSTOM', label: 'Write My Own' }].map((o) => (
+            <label key={o.key} className={`radio ${chosen === o.key ? 'on' : ''} ${o.key === 'CUSTOM' ? 'custom' : ''}`}>
               <input type="radio" name="decision" checked={chosen === o.key} onChange={() => setChosen(o.key)} />
               <span className="radio-t">{o.label}</span>
               {o.rec && <span className="radio-rec">Recommended</span>}

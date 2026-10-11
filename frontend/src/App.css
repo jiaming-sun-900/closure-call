@@ -731,3 +731,15 @@ button.fc-row:disabled { cursor: wait; }
 .notices .draft-subj { font-size: 19px; }
 .notices .draft pre { font-size: 17px; }
 @media (max-width: 900px) { .notices { grid-template-columns: 1fr; } }
+
+/* v21 */
+.note-list { display: grid; gap: 6px; align-content: start; }
+.note-list button { text-align: left; border: 1.5px solid var(--line); background: #fff; border-radius: 12px; padding: 12px 14px; font: inherit; font-size: 17px; font-weight: 800; cursor: pointer; }
+.note-list button:hover { background: var(--bg); }
+.note-list button.on { border-color: var(--usda); background: var(--usda-l); color: var(--usda); }
+.notices { grid-template-columns: 260px minmax(0, 1fr); }
+.decide-page { max-width: 1000px; margin: 0 auto; }
+.decide-page .dec-sec { max-width: none; }
+.decide-page .page-h { margin-top: 10px; }
+.radio.custom { border-top: 2px dashed var(--line); font-weight: 900; color: var(--usda); }
+.radio.custom .radio-t::after { content: 'Type your own decision'; margin-left: 10px; font-size: 14px; font-weight: 700; color: var(--muted); }

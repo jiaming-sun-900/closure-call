@@ -362,28 +362,17 @@ function Block({ title, sub, children }) {
   )
 }
 
-const ROLE_GROUPS = [
-  ['Building', (x) => x.role === 'facility', () => 'Facility Manager'],
-  ['Farm Service Agency (FSA)', (x) => x.agency === 'FSA', (x) => (x.role === 'agency' ? 'Team Manager' : 'Program Manager')],
-  ['Natural Resources Conservation Service (NRCS)', (x) => x.agency === 'NRCS', (x) => (x.role === 'agency' ? 'Team Manager' : 'Program Manager')],
-  ['Leadership', (x) => x.role === 'executive', () => 'Executive Summary'],
-]
+const roleName = (x) => ({ facility: 'Facility Manager', executive: 'Executive Summary' }[x.role]
+  || `${x.agency} ${x.role === 'agency' ? 'Team' : 'Program'} Manager`)
 function Notices({ a }) {
   const pkg = a.notifications
   const [tab, setTab] = useState(0)
   const role = pkg.roles[tab]
   return (
-    <Block title="Notice Drafts" sub="6 roles, preview only">
+    <Block title="Notice Drafts">
       <div className="notices">
         <nav className="note-list">
-          {ROLE_GROUPS.map(([group, match, name]) => (
-            <div key={group} className="note-group">
-              <div className="note-gh">{group}</div>
-              {pkg.roles.map((x, i) => match(x) && (
-                <button key={i} className={i === tab ? 'on' : ''} onClick={() => setTab(i)}>{name(x)}</button>
-              ))}
-            </div>
-          ))}
+          {pkg.roles.map((x, i) => <button key={i} className={i === tab ? 'on' : ''} onClick={() => setTab(i)}>{roleName(x)}</button>)}
         </nav>
         <div className="draft">
           <div className="draft-to">To: {clean(role.to)}</div>
