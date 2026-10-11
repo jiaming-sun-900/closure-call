@@ -271,7 +271,7 @@ export function About() {
         <div className="about-sdk">Strands Agents SDK</div>
         <div className="about-stack">{STACK.map((x) => <span key={x}>{x}</span>)}</div>
       </section>
-      <p className="about-team">Made by Chris and Zoe at Hack Midwest 2026 for the USDA Closure Call challenge.</p>
+      <p className="about-team">Made by Jiaming and Zoe at Hack Midwest 2026 for the USDA Closure Call challenge.</p>
     </div>
   )
 }
