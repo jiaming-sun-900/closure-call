@@ -20,9 +20,6 @@ export const LEVEL = [
 ]
 export const levelTone = (n) => LEVEL[Math.max(0, Math.min(4, n || 0))].tone
 
-export const KIND_EMOJI = { nws: '⚠️', gauge: '🌊', wind: '💨', power: '⚡', roads: '🚗', facility: '🏢' }
-export const eventEmoji = (ev = '') =>
-  /hurricane|tropical|surge/i.test(ev) ? '🌀' : /flood/i.test(ev) ? '🌊' : /wind/i.test(ev) ? '💨' : /tornado/i.test(ev) ? '🌪' : '⚠️'
 
 export const agencyTone = (g) =>
   POSTURE[g.posture].tone === 'green' && g.field_work && g.field_work !== 'normal' ? 'yellow' : POSTURE[g.posture].tone
@@ -85,12 +82,12 @@ export function personAction(e, ag) {
   }
 }
 export const STATUS = {
-  onsite: { icon: '🏢', label: 'Scheduled on site' },
-  teleworking: { icon: '🏠', label: 'Teleworking' },
-  on_detail: { icon: '✈️', label: 'On detail' },
-  leave: { icon: '🌴', label: 'On leave' },
+  onsite: { label: 'Scheduled on site' },
+  teleworking: { label: 'Teleworking' },
+  on_detail: { label: 'On detail' },
+  leave: { label: 'On leave' },
 }
-export const CHANNEL = { sms: '📱', email: '✉️', phone: '📞' }
+export const CHANNEL = { sms: 'SMS', email: 'Email', phone: 'Phone' }
 
 export const AGENCY_FULL = {
   FSA: 'Farm Service Agency (FSA)',

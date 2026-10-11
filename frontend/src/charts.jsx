@@ -9,7 +9,7 @@ function useMounted(delay = 60) {
   return on
 }
 
-/* ⚡ half-circle outage gauge */
+/* half-circle outage gauge */
 export function OutageGauge({ pct = 0, size = 220 }) {
   const on = useMounted()
   const max = 50 // scale tops out at 50% of customers
@@ -38,7 +38,7 @@ export function OutageGauge({ pct = 0, size = 220 }) {
   )
 }
 
-/* 🌊 vertical water level gauge with flood lines */
+/* vertical water level gauge with flood lines */
 export function WaterGauge({ stage, forecast, stages = {}, height = 200 }) {
   const on = useMounted(120)
   const top = Math.max(stages.major || 0, stage || 0, forecast || 0) * 1.2 || 10
@@ -67,7 +67,7 @@ export function WaterGauge({ stage, forecast, stages = {}, height = 200 }) {
   )
 }
 
-/* 💨 wind number with flowing lines */
+/* wind number with flowing lines */
 export function Wind({ mph = 0 }) {
   const speed = Math.max(0.6, 4 - mph / 15) // faster wind, faster lines
   return (
@@ -80,7 +80,7 @@ export function Wind({ mph = 0 }) {
   )
 }
 
-/* 🗺 map: facility pin + NWS alert polygons */
+/* map: facility pin + NWS alert polygons */
 const RADAR_FRAMES = ['m50m', 'm40m', 'm30m', 'm20m', 'm10m', '']
 export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar = false, wind = null, labels = false, hideWindBadge = false }) {
   const el = useRef(null)
@@ -104,7 +104,7 @@ export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar 
       }).bindTooltip(a.event, labels ? { permanent: true, direction: 'center', className: 'area-label' } : {}).addTo(m)
       shapes.push(layer)
     })
-    const icon = L.divIcon({ className: 'pin', html: '<div class="pin-dot">🏢</div>', iconSize: [34, 34], iconAnchor: [17, 17] })
+    const icon = L.divIcon({ className: 'pin', html: '<div class="pin-dot"></div>', iconSize: [34, 34], iconAnchor: [17, 17] })
     L.marker([lat, lon], { icon }).bindTooltip('USDA Lake Charles Service Center').addTo(m)
     const group = shapes.length ? L.featureGroup(shapes).getBounds().extend([lat, lon]) : null
     if (group) m.fitBounds(group, { padding: [16, 16], maxZoom: 11 })
@@ -137,7 +137,7 @@ export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar 
         </div>
       )}
       {wind && wind.dir && <WindField deg={(dirDeg[wind.dir] ?? 0) + 180} mph={wind.mph} />}
-      {radar && <div className="map-badge">📡 Radar, last 50 min {frame === RADAR_FRAMES.length - 1 ? '(now)' : `(-${(RADAR_FRAMES.length - 1 - frame) * 10} min)`}</div>}
+      {radar && <div className="map-badge">Radar, last 50 min {frame === RADAR_FRAMES.length - 1 ? '(now)' : `(-${(RADAR_FRAMES.length - 1 - frame) * 10} min)`}</div>}
       {wind && wind.dir && !hideWindBadge && (
         <div className="map-wind" title={`Wind from the ${wind.dir}`}>
           <div className="wind-arrow" style={{ transform: `rotate(${(dirDeg[wind.dir] ?? 0) + 90}deg)` }}>➤</div>
@@ -148,7 +148,7 @@ export function AlertMap({ lat, lon, alerts = [], height = 220, zoom = 9, radar 
   )
 }
 
-/* 🚗 roads status */
+/* roads status */
 export function RoadStatus({ weatherClosures = 0, manual = 'open' }) {
   const bad = manual === 'impassable' || weatherClosures >= 3
   const warn = !bad && (manual === 'limited' || weatherClosures > 0)
@@ -156,7 +156,7 @@ export function RoadStatus({ weatherClosures = 0, manual = 'open' }) {
   const word = bad ? 'Blocked' : warn ? 'Slow' : 'Clear'
   return (
     <div className={`road ${tone}`}>
-      <div className="road-lane"><span className="car">🚗</span></div>
+      <div className="road-lane"><span className="car" /></div>
       <div className="road-word">{word}</div>
     </div>
   )
@@ -179,7 +179,7 @@ export function LevelScale({ level, th }) {
   )
 }
 
-/* 💨 wind vector field: a grid of arrows pointing where the wind blows, drifting gently */
+/* wind vector field: a grid of arrows pointing where the wind blows, drifting gently */
 function WindField({ deg, mph }) {
   const cols = 9, rows = 6
   const len = Math.min(34, 14 + mph * 0.8)

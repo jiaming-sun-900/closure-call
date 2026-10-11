@@ -6,10 +6,10 @@ import { About, Decide, Records, Settings } from './pages'
 import './App.css'
 
 const NAV = [
-  ['start', '🚀', 'Start analysis'],
-  ['results', '📊', 'Results'],
-  ['decide', '✅', 'Decide'],
-  ['records', '📜', 'Records'],
+  ['start', 'Start analysis'],
+  ['results', 'Results'],
+  ['decide', 'Decide'],
+  ['records', 'Records'],
 ]
 const PAGES = [...NAV.map(([k]) => k), 'about', 'settings']
 const pageFromHash = () => (PAGES.includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : 'start')
@@ -72,21 +72,21 @@ export default function App() {
           <div className="logo-t">Closure Call</div>
         </div>
         <nav className="tabs">
-          {NAV.map(([k, ic, label]) => (
+          {NAV.map(([k, label]) => (
             <button key={k} className={page === k && !running ? 'on' : ''} onClick={() => { if (running === 'replay') setRunning(null); go(k) }}
               disabled={k === 'results' && !a}>
-              <span className="nav-ic">{ic}</span><span className="nav-l">{label}</span>
+              <span className="nav-l">{label}</span>
             </button>
           ))}
         </nav>
         <nav className="tabs side-bottom">
-          <button className={page === 'about' && !running ? 'on' : ''} onClick={() => go('about')}><span className="nav-ic">🍃</span><span className="nav-l">About us</span></button>
-          <button className={page === 'settings' && !running ? 'on' : ''} onClick={() => go('settings')}><span className="nav-ic">⚙️</span><span className="nav-l">Settings</span></button>
+          <button className={page === 'about' && !running ? 'on' : ''} onClick={() => go('about')}><span className="nav-l">About us</span></button>
+          <button className={page === 'settings' && !running ? 'on' : ''} onClick={() => go('settings')}><span className="nav-l">Settings</span></button>
         </nav>
       </aside>
 
       <main className="content">
-        {error && <div className="alert red">⚠️ {error}</div>}
+        {error && <div className="alert red">{error}</div>}
         {running ? <Progress sq={sq} dayIso={dayIso || new Date().toISOString().slice(0, 10)} /> : (
           <>
             {page === 'start' && <StartPage situation={situation} selected={selectedDay} setSelected={setSelectedDay}

@@ -3,9 +3,9 @@ import { api } from './api'
 import { SignalList } from './flow'
 import { POSTURE, agencyAction, clean, fmt } from './lib'
 
-/* ---------- ✅ Decide ---------- */
+/* ---------- Decide ---------- */
 export function Decide({ a, chosen, setChosen, go }) {
-  if (!a) return <div className="page start fade"><h2 className="page-h">✅ Make the call</h2><p className="quiet">Run an analysis first.</p><button className="btn green huge" onClick={() => go('start')}>🚀 Start analysis</button></div>
+  if (!a) return <div className="page start fade"><h2 className="page-h">Make the call</h2><p className="quiet">Run an analysis first.</p><button className="btn green huge" onClick={() => go('start')}>Start analysis</button></div>
   return <DecideInner a={a} chosen={chosen} setChosen={setChosen} />
 }
 
@@ -25,21 +25,19 @@ function DecideInner({ a, chosen, setChosen }) {
       setDone(rec); setReason('')
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
-  const icons = { OPEN: '🟢', DELAYED_ARRIVAL: '⏰', EARLY_DEPARTURE: '🏃', UNSCHEDULED_TELEWORK: '🏠', CLOSED_TELEWORK: '💻', CLOSED: '🔒' }
   return (
     <div className="page">
-      <h2 className="page-h">✅ Make the call</h2>
+      <h2 className="page-h">Make the call</h2>
       <p className="tagline">The system recommends. You decide.</p>
       <div className="opts">
         {r.options.map((o) => (
           <button key={o.key} className={`opt ${o.recommended ? 'recd' : ''} ${chosen === o.key ? 'on' : ''}`} onClick={() => setChosen(o.key)}>
-            {o.recommended && <span className="badge">🍃 Recommended</span>}
-            <span className="opt-ic">{icons[o.key]}</span>
+            {o.recommended && <span className="badge">Recommended</span>}
             <span className="opt-t">{POSTURE[o.key].action}</span>
           </button>
         ))}
         <button className={`opt ${chosen === 'CUSTOM' ? 'on' : ''}`} onClick={() => setChosen('CUSTOM')}>
-          <span className="opt-ic">✏️</span><span className="opt-t">Write my own</span>
+          <span className="opt-t">Write my own</span>
         </button>
       </div>
       {chosen === 'CUSTOM' && <input className="inp" placeholder="Your decision, for example: Open 10 AM to 2 PM" value={custom} onChange={(e) => setCustom(e.target.value)} />}
@@ -55,7 +53,6 @@ function DecideInner({ a, chosen, setChosen }) {
         <div className="success" onClick={() => setDone(null)}>
           <div className="success-card">
             <div className="check">✓</div>
-            <div className="leaves">{Array.from({ length: 10 }).map((_, i) => <span key={i} style={{ '--i': i }}>🍃</span>)}</div>
             <h3>Decision saved</h3>
             <p>{done.record_id}: {clean(done.decision)}</p>
             <p className="quiet small">Evidence snapshot stored. Tap to close.</p>
@@ -66,7 +63,7 @@ function DecideInner({ a, chosen, setChosen }) {
   )
 }
 
-/* ---------- 📜 Records ---------- */
+/* ---------- Records ---------- */
 export function Records() {
   const [list, setList] = useState(null)
   const [detail, setDetail] = useState({})
@@ -74,7 +71,7 @@ export function Records() {
   const load = async (id) => { if (!detail[id]) { const d = await api.record(id); setDetail((m) => ({ ...m, [id]: d })) } }
   return (
     <div className="page">
-      <h2 className="page-h">📜 Decision record</h2>
+      <h2 className="page-h">Decision record</h2>
       {!list ? <p className="quiet">Loading…</p> : !list.length ? <p className="quiet">No decisions yet.</p> : list.map((r) => (
         <section key={r.record_id} className="card rec fade">
           <div className="row between">
@@ -102,16 +99,16 @@ function Snapshot({ e }) {
       <li>Data as of {fmt(e.as_of, { month: 'short', day: 'numeric' })}</li>
       <li>System advice: {POSTURE[r.recommended]?.action || 'none'}, hazard {r.level} of 4</li>
       <li>{r.agencies.map((g) => `${g.code}: ${agencyAction(g)}`).join('; ')}</li>
-      <li>🌊 {i.gauge ? `${i.gauge.stage_ft} ft at ${clean(i.gauge.name)}` : 'river data missing'}</li>
-      <li>⚡ {i.outage ? `${i.outage.customers_out} of ${i.outage.customers_served} out` : 'outage data missing'}</li>
-      <li>⚠️ {i.alerts ? (i.alerts.map((x) => x.event).join(', ') || 'no alerts') : 'NWS missing'}</li>
-      <li>🏢 Power {i.facility_status?.power}, water {i.facility_status?.water}, roof {i.facility_status?.roof}, roads {i.facility_status?.roads}</li>
+      <li>River: {i.gauge ? `${i.gauge.stage_ft} ft at ${clean(i.gauge.name)}` : 'river data missing'}</li>
+      <li>Power: {i.outage ? `${i.outage.customers_out} of ${i.outage.customers_served} out` : 'outage data missing'}</li>
+      <li>Alerts: {i.alerts ? (i.alerts.map((x) => x.event).join(', ') || 'no alerts') : 'NWS missing'}</li>
+      <li>Building: power {i.facility_status?.power}, water {i.facility_status?.water}, roof {i.facility_status?.roof}, roads {i.facility_status?.roads}</li>
       <SignalList signals={r.signals} />
     </ul>
   )
 }
 
-/* ---------- ⚙️ Settings (localhost only) ---------- */
+/* ---------- Settings (localhost only) ---------- */
 export function Settings({ onSaved, simulate, setSimulate }) {
   const [st, setSt] = useState(null)
   const [key, setKey] = useState('')
@@ -120,20 +117,20 @@ export function Settings({ onSaved, simulate, setSimulate }) {
   useEffect(() => { api.settings().then(setSt).catch((e) => setMsg({ tone: 'red', text: e.message })) }, [])
   const save = async () => {
     setBusy(true); setMsg(null)
-    try { const r = await api.saveKey(key); setSt(r); setKey(''); setMsg({ tone: 'green', text: '✅ Key saved' }); onSaved?.() }
+    try { const r = await api.saveKey(key); setSt(r); setKey(''); setMsg({ tone: 'green', text: 'Key saved' }); onSaved?.() }
     catch (e) { setMsg({ tone: 'red', text: e.message }) } finally { setBusy(false) }
   }
   const test = async () => {
     setBusy(true); setMsg(null)
-    try { const r = await api.testKey(); setMsg({ tone: 'green', text: `✅ Connected, using ${r.model_id}` }) }
+    try { const r = await api.testKey(); setMsg({ tone: 'green', text: `Connected, using ${r.model_id}` }) }
     catch (e) { setMsg({ tone: 'red', text: e.message }) } finally { setBusy(false) }
   }
   return (
     <div className="page">
-      <h2 className="page-h">⚙️ Settings</h2>
+      <h2 className="page-h">Settings</h2>
       <p className="tagline">Local demo only. In production the key comes from the server.</p>
       <section className="card fade settings">
-        <div className="card-h">🔑 Anthropic API key</div>
+        <div className="card-h">Anthropic API key</div>
         {st && <div className="row"><span className={`chip ${st.key_set ? 'green' : 'yellow'}`}>{st.key_set ? `Saved, ends in ${st.key_last4}` : 'No key yet'}</span>
           {st.model_id && <span className="chip blue">Model: {st.model_id}</span>}</div>}
         <input className="inp" type="password" autoComplete="off" placeholder="sk-ant-..." value={key} onChange={(e) => setKey(e.target.value)} />
@@ -150,7 +147,7 @@ export function Settings({ onSaved, simulate, setSimulate }) {
       </section>
       <ResetFacility />
       <section className="card fade settings">
-        <div className="card-h">🧪 Test mode</div>
+        <div className="card-h">Test mode</div>
         <div className="small">Simulates an NWS outage to show the system never defaults to Open when weather data is missing.</div>
         <div className="row" style={{ marginTop: 10 }}>
           <div className="seg">
@@ -173,7 +170,7 @@ function ClearRecords() {
   }
   return (
     <section className="card fade settings">
-      <div className="card-h">🧹 Clear test records</div>
+      <div className="card-h">Clear test records</div>
       <div className="quiet small">For rehearsals only. Records cannot be deleted from the record page. Cleared records are archived on this computer.</div>
       <div className="row" style={{ marginTop: 10 }}>
         {step === 0 && <button className="btn" onClick={() => { setStep(1); setMsg(null) }}>Clear test records…</button>}
@@ -193,7 +190,7 @@ function ResetFacility() {
   }
   return (
     <section className="card fade settings">
-      <div className="card-h">🏢 Building check</div>
+      <div className="card-h">Building check</div>
       <div className="small">Test values (like power out) stay until reset. Re-analyze afterwards.</div>
       <div className="row" style={{ marginTop: 10 }}><button className="btn green" onClick={reset}>Reset building check to all normal</button></div>
       {msg && <div className="alert green">{msg}</div>}

@@ -58,7 +58,6 @@ html, body { overflow-x: hidden; }
 .bul li::before { content: '• '; color: var(--usda); font-weight: 900; }
 .evidence { margin-top: 12px; }
 .evidence summary { cursor: pointer; color: var(--blue); font-weight: 700; font-size: 14px; list-style: none; display: inline-flex; align-items: center; gap: 6px; }
-.evidence summary::before { content: '🔍'; }
 .evidence summary::-webkit-details-marker { display: none; }
 .evidence[open] summary { margin-bottom: 8px; }
 .evidence-body { background: var(--blue-l); border-radius: 14px; padding: 12px 14px; font-size: 13px; }
@@ -81,7 +80,6 @@ html, body { overflow-x: hidden; }
 
 /* overview hero */
 .hero { display: flex; align-items: center; gap: 22px; background: linear-gradient(120deg, var(--usda-l), #fff 70%); border: 1px solid var(--line); border-radius: 24px; padding: 22px 26px; position: relative; overflow: hidden; }
-.hero::after { content: '🍃'; position: absolute; right: 22px; top: 14px; font-size: 40px; opacity: .18; transform: rotate(20deg); }
 .hero-date { font-weight: 800; color: var(--usda); font-size: 14px; text-transform: uppercase; letter-spacing: .6px; }
 .hero h1 { font-size: 30px; line-height: 1.2; margin: 4px 0 10px; font-weight: 900; letter-spacing: -.5px; }
 .hero-chips { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -605,3 +603,14 @@ body, .card, .tile, .block, .tag, .bubble, .draft pre { color: var(--ink); }
 .day-wx { font-size: 14px; font-weight: 700; }
 .day-rec { font-size: 13px; font-weight: 800; color: var(--ink); }
 .hero-note { margin-top: 10px; font-weight: 700; font-size: 16px; }
+
+/* v11: no decorative emoji */
+.pcard { grid-template-columns: 1fr 40px; }
+.pwide { grid-template-columns: 1fr 48px; }
+.car { width: 34px; height: 16px; top: 16px; border-radius: 6px 10px 4px 4px; background: var(--t, #2f74c0); font-size: 0; }
+.road.green .car { background: var(--green); } .road.yellow .car { background: var(--yellow); } .road.red .car { background: var(--red); }
+.person .bell { width: 10px; height: 10px; border-radius: 50%; background: #c9d1cc; justify-self: center; }
+.person.yes .bell { background: var(--green); }
+.p-ch .ch { font-size: 13px; font-weight: 700; border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px; }
+.hero-note.red { color: var(--red); } .hero-note.yellow { color: #8a6100; }
+@media (max-width: 900px) { .side nav.tabs button { font-size: 14px; font-weight: 800; min-height: 48px; } }

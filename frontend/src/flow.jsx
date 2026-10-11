@@ -3,7 +3,7 @@ import { api } from './api'
 import Leaf from './Leaf'
 import { OutageGauge, RoadStatus, WaterGauge, Wind } from './charts'
 import {
-  AGENCY_FULL, AGENCY_NAME, CHANNEL, KIND_EMOJI, LEVEL, POSTURE, STATUS, agencyAction, agencyTone, agencyWord, ago, clean,
+  AGENCY_FULL, AGENCY_NAME, CHANNEL, LEVEL, POSTURE, STATUS, agencyAction, agencyTone, agencyWord, ago, clean,
   fmt, levelTone, oneLiner, personAction,
 } from './lib'
 
@@ -11,16 +11,16 @@ const FACILITY = 'USDA Lake Charles Service Center'
 const PLACE = 'Calcasieu Parish, Louisiana'
 
 export const STEP_META = {
-  get_nws_alerts: ['🌀', 'NWS alerts'],
-  get_forecast: ['💨', 'Hourly forecast'],
-  get_river_gauge: ['🌊', 'River level'],
-  get_power_outages: ['⚡', 'Entergy outages'],
-  get_road_closures: ['🚗', 'LA 511 roads'],
-  get_facility_status: ['🏢', 'Building check'],
-  get_roster: ['👥', 'Staff roster'],
-  evaluate_rules: ['⚖️', 'Rules engine sets the hazard level'],
-  draft_notifications: ['📨', 'Notices prepared'],
-  agent_write: ['✍️', 'Strands agent writes the rationale and notices'],
+  get_nws_alerts: ['NWS alerts'],
+  get_forecast: ['Hourly forecast'],
+  get_river_gauge: ['River level'],
+  get_power_outages: ['Entergy outages'],
+  get_road_closures: ['LA 511 roads'],
+  get_facility_status: ['Building check'],
+  get_roster: ['Staff roster'],
+  evaluate_rules: ['Rules engine sets the hazard level'],
+  draft_notifications: ['Notices prepared'],
+  agent_write: ['Strands agent writes the rationale and notices'],
 }
 const DATA_TOOLS = Object.keys(STEP_META).slice(0, 7)
 const shortSummary = (s = '') => clean(s)
@@ -40,7 +40,7 @@ export function SignalList({ signals }) {
     <ul className="sig-list">
       {signals.map((s, i) => (
         <li key={i}>
-          <b>{KIND_EMOJI[s.kind]} {clean(s.title)}</b>
+          <b>{clean(s.title)}</b>
           <span>Observed: {clean(s.observed)}</span>
           <span>Threshold: {clean(s.threshold)}, exceeded by {clean(s.exceed_by)}</span>
           <span>Basis: {clean(s.basis)}</span>
@@ -50,7 +50,7 @@ export function SignalList({ signals }) {
     </ul>
   )
 }
-export function CopyBtn({ text, label = '📋 Copy to email' }) {
+export function CopyBtn({ text, label = 'Copy to email' }) {
   const [done, setDone] = useState(false)
   return (
     <button className="btn green" onClick={() => { navigator.clipboard?.writeText(text); setDone(true); setTimeout(() => setDone(false), 1500) }}>
@@ -62,14 +62,14 @@ function FacilityTitle({ small }) {
   return (
     <div className={`fac-title ${small ? 'small' : ''}`}>
       <div className="fac-name">{FACILITY}</div>
-      <div className="fac-place">📍 {PLACE}</div>
+      <div className="fac-place">{PLACE}</div>
     </div>
   )
 }
 function DateLines({ asOf, live = true }) {
   return (
     <div className="date-lines">
-      <div>🕒 <b>Data updated:</b> {ago(asOf)}{live ? ' (live)' : ''}</div>
+      <div><b>Data updated:</b> {ago(asOf)}{live ? ' (live)' : ''}</div>
     </div>
   )
 }
@@ -79,7 +79,7 @@ export function Outlook({ days, nextDay }) {
   if (!days) return null
   return (
     <section className="outlook">
-      <h2 className="sec-h">📅 7-day forecast</h2>
+      <h2 className="sec-h">7-day forecast</h2>
       <div className="days">
         {days.map((d) => {
           const tone = d.closed ? 'grey' : levelTone(d.level)
@@ -131,11 +131,10 @@ export function Progress({ sq, dayIso }) {
   const running = sq.order.filter((t) => sq.steps[t]?.status === 'running')
   const card = (tool) => {
     const st = sq.steps[tool]
-    const [ic, label] = STEP_META[tool]
+    const [label] = STEP_META[tool]
     const state = !st ? 'wait' : st.status
     return (
       <div key={tool} className={`pcard ${state} ${running.includes(tool) ? 'now' : ''}`}>
-        <div className="pc-ic">{ic}</div>
         <div className="pc-main">
           <div className="pc-l">{label}</div>
           <div className="pc-r">{state === 'running' ? 'Checking…' : state === 'done' ? shortSummary(st.summary) : state === 'error' ? 'Unavailable' : 'Waiting'}</div>
@@ -146,15 +145,14 @@ export function Progress({ sq, dayIso }) {
   }
   const wide = (tool) => {
     const st = sq.steps[tool]
-    const [ic, label] = STEP_META[tool]
+    const [label] = STEP_META[tool]
     const state = !st ? 'wait' : st.status
     return (
       <div key={tool} className={`pwide ${state}`}>
-        <div className="pc-ic big">{ic}</div>
         <div className="pc-main">
           <div className="pc-l">{label}</div>
           <div className="pc-r">{state === 'running' ? 'Working…' : state === 'done' ? shortSummary(st.summary) : state === 'error' ? shortSummary(st.summary) : 'Waiting'}</div>
-          {tool === 'agent_write' && sq.agentCalls.length > 0 && <div className="agent-calls">{sq.agentCalls.map((t, i) => <span key={i} className="pop">🤖 {t}</span>)}</div>}
+          {tool === 'agent_write' && sq.agentCalls.length > 0 && <div className="agent-calls">{sq.agentCalls.map((t, i) => <span key={i} className="pop">{t}</span>)}</div>}
         </div>
         <div className="pc-s">{state === 'running' ? <span className="spin big" /> : state === 'done' ? '✓' : ''}</div>
       </div>
@@ -205,8 +203,8 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onD
           <DateLines asOf={a.as_of} />
         </div>
         <div className="row">
-          <button className="btn green" onClick={onReplay}>▶ Replay analysis</button>
-          <button className="btn green" onClick={onReanalyze} disabled={busy}>🔄 Re-analyze</button>
+          <button className="btn green" onClick={onReplay}>Replay analysis</button>
+          <button className="btn green" onClick={onReanalyze} disabled={busy}>Re-analyze</button>
         </div>
       </div>
 
@@ -214,7 +212,7 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onD
         <div className="res-main">
           {scenario && (
             <div className="hypo-bar">
-              <span>🧪 Hypothetical, not saved: {scenario.changed.join(', ')}</span>
+              <span>Hypothetical, not saved: {scenario.changed.join(', ')}</span>
               <button className="btn sm" onClick={() => setScenario(null)}>Back to live data</button>
             </div>
           )}
@@ -225,57 +223,57 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onD
                 <span className={`chip ${levelTone(r.level)}`}>Hazard {r.level} of 4: {LEVEL[r.level].name}</span>
                 <span className="chip blue">Confidence {r.confidence.toLowerCase()}</span>
               </div>
-              {live.length > 0 && <div className="hero-note">⚠️ NWS alerts now: {[...new Set(live.map((x) => x.event))].join(', ')}</div>}
-              {worse.length > 0 && <div className="hero-note">👀 Heads up: {worse.map((d) => `${d.weekday} ${d.label} hazard ${d.level} (${POSTURE[d.recommended]?.word || 'decide'})`).join(', ')}</div>}
+              {live.length > 0 && <div className="hero-note red">Active NWS alerts: {[...new Set(live.map((x) => x.event))].join(', ')}</div>}
+              {worse.length > 0 && <div className="hero-note yellow">Heads up: {worse.map((d) => `${d.weekday} ${d.label} hazard ${d.level} (${POSTURE[d.recommended]?.word || 'decide'})`).join(', ')}</div>}
             </div>
           </section>
 
           <section className="tags">
-            <Tag tone={bTone} icon="🏢" name="Building" word={r.recommended ? POSTURE[r.recommended].word : 'Decide'} sub={r.recommended ? POSTURE[r.recommended].action : 'Weather data missing'} />
-            {r.agencies.map((g) => <Tag key={g.code + r.level} tone={agencyTone(g)} icon={g.code === 'NRCS' ? '🌱' : '🌾'} name={AGENCY_FULL[g.code]} word={agencyWord(g)} sub={agencyAction(g)} />)}
+            <Tag tone={bTone} name="Building" word={r.recommended ? POSTURE[r.recommended].word : 'Decide'} sub={r.recommended ? POSTURE[r.recommended].action : 'Weather data missing'} />
+            {r.agencies.map((g) => <Tag key={g.code + r.level} tone={agencyTone(g)} name={AGENCY_FULL[g.code]} word={agencyWord(g)} sub={agencyAction(g)} />)}
           </section>
 
           <section className="tiles">
             {situation?.outlook && <div className="tile wide reveal"><Outlook days={situation.outlook} nextDay={r.window.date} /></div>}
             <div className="tile reveal">
-              <div className="tile-h">🌊 River <span className={`dot ${levelTone(maxLevel(r, 'gauge'))}`} /></div>
+              <div className="tile-h">River <span className={`dot ${levelTone(maxLevel(r, 'gauge'))}`} /></div>
               {inp.gauge ? <div className="river-row"><WaterGauge key={inp.gauge.stage_ft} stage={inp.gauge.stage_ft} forecast={fc?.ft} stages={inp.gauge.flood_stages_ft} height={170} />
                 <div className="keynum">{inp.gauge.stage_ft?.toFixed(1)}<small>ft</small></div></div> : <Missing />}
             </div>
             <div className="tile reveal">
-              <div className="tile-h">⚡ Power <span className={`dot ${levelTone(maxLevel(r, 'power'))}`} /></div>
+              <div className="tile-h">Power <span className={`dot ${levelTone(maxLevel(r, 'power'))}`} /></div>
               {inp.outage ? <><OutageGauge key={inp.outage.pct} pct={inp.outage.pct} size={190} /><div className="keynum c">{inp.outage.customers_out.toLocaleString()}<small>homes out</small></div></> : <Missing />}
             </div>
             <div className="tile reveal">
-              <div className="tile-h">💨 Wind now <span className={`dot ${levelTone(maxLevel(r, 'wind'))}`} /></div>
+              <div className="tile-h">Wind now <span className={`dot ${levelTone(maxLevel(r, 'wind'))}`} /></div>
               {nowWind ? <Wind mph={nowWind.wind_mph} /> : <Missing />}
               {peak && !scenario && <div className="tile-f">Peak {peak.wind_mph} mph on {r.window.day}</div>}
             </div>
             <div className="tile reveal">
-              <div className="tile-h">🚗 Roads <span className={`dot ${levelTone(maxLevel(r, 'roads'))}`} /></div>
+              <div className="tile-h">Roads <span className={`dot ${levelTone(maxLevel(r, 'roads'))}`} /></div>
               <RoadStatus weatherClosures={inp.roads?.weather_related_closures || 0} manual={inp.facility_status?.roads} />
             </div>
           </section>
 
 
           <div className="blocks">
-            <Block icon="⚖️" title="Thresholds and sources" sub={`${r.signals.length} signals`}>
+            <Block title="Thresholds and sources" sub={`${r.signals.length} signals`}>
               <SignalList signals={r.signals} />
               <h4>What would change this</h4>
               <ul className="bul">{r.what_would_change.map((w, i) => <li key={i}>{clean(w)}</li>)}</ul>
             </Block>
             {!scenario && <Notices a={a} />}
-            <Block icon="👥" title="People" sub={`${avail.total.on_site} on site, ${avail.total.telework} remote, ${avail.total.unavailable} unavailable`}>
+            <Block title="People" sub={`${avail.total.on_site} on site, ${avail.total.telework} remote, ${avail.total.unavailable} unavailable`}>
               {!scenario ? <People a={a} /> : <p>Staff details are shown for live data only.</p>}
             </Block>
-            {!scenario && <Block icon="🏢" title="Building check" sub="Manual report"><FacilityCheck fs={a.inputs.facility_status} onSaved={onReanalyze} /></Block>}
+            {!scenario && <Block title="Building check" sub="Manual report"><FacilityCheck fs={a.inputs.facility_status} onSaved={onReanalyze} /></Block>}
           </div>
           <div className="center go"><button className="btn green huge" onClick={onDecide}>Go to decision →</button></div>
         </div>
 
         <aside className="res-side">
           <section className="card">
-            <div className="card-h">🌿 Agent recommendation</div>
+            <div className="card-h">Agent recommendation</div>
             <p className="rationale">{clean(a.rationale)}</p>
             <div className="row between">
               <span className="small">{a.rationale_by === 'template' ? 'Rules decide the level. Template text.' : 'Rules decide the level. The agent wrote the words.'}</span>
@@ -289,18 +287,18 @@ export function ResultsPage({ a, facility, situation, onReplay, onReanalyze, onD
   )
 }
 
-function Block({ icon, title, sub, children }) {
+function Block({ title, sub, children }) {
   return (
     <details className="block">
-      <summary><span>{icon} {title}</span>{sub && <span className="block-sub">{sub}</span>}</summary>
+      <summary><span>{title}</span>{sub && <span className="block-sub">{sub}</span>}</summary>
       <div className="block-body">{children}</div>
     </details>
   )
 }
-function Tag({ tone, icon, name, word, sub }) {
+function Tag({ tone, name, word, sub }) {
   return (
     <div className={`tag ${tone} reveal`}>
-      <div className="tag-name">{icon} {name}</div>
+      <div className="tag-name">{name}</div>
       <div className="tag-word">{word}</div>
       {sub && <div className="tag-sub">{sub}</div>}
     </div>
@@ -311,19 +309,18 @@ function Notices({ a }) {
   const pkg = a.notifications
   const [tab, setTab] = useState(0)
   const role = pkg.roles[tab]
-  const roleIcon = { facility: '🏢', agency: '👥', program: '📋', executive: '⭐' }
   const title = (x) => x.agency ? x.title.replace(x.agency, AGENCY_NAME[x.agency]) : x.title
   return (
-    <Block icon="✉️" title="Notice drafts" sub="6 roles, preview only">
+    <Block title="Notice drafts" sub="6 roles, preview only">
       <div className="role-tabs">
-        {pkg.roles.map((x, i) => <button key={i} className={i === tab ? 'on' : ''} onClick={() => setTab(i)}>{roleIcon[x.role]} {title(x)}</button>)}
+        {pkg.roles.map((x, i) => <button key={i} className={i === tab ? 'on' : ''} onClick={() => setTab(i)}>{title(x)}</button>)}
       </div>
       <div className="draft">
         <div className="draft-to">To: {clean(role.to)}</div>
         <div className="draft-subj">{clean(role.subject)}</div>
         <pre>{clean(role.body)}</pre>
         {role.programs && <div className="progs">{role.programs.map((p) => <span key={p.name} className={`chip ${p.status === 'continues' ? 'green' : p.status === 'limited' ? 'yellow' : 'red'}`}>{p.name}: {p.status}</span>)}</div>}
-        <div className="row between"><span className="small">{role.written_by === 'agent' ? 'Drafted by the agent' : 'Template draft'}</span><CopyBtn text={`${clean(role.subject)}\n\n${clean(role.body)}`} label="📋 Copy" /></div>
+        <div className="row between"><span className="small">{role.written_by === 'agent' ? 'Drafted by the agent' : 'Template draft'}</span><CopyBtn text={`${clean(role.subject)}\n\n${clean(role.body)}`} label="Copy" /></div>
       </div>
     </Block>
   )
@@ -336,10 +333,10 @@ function People({ a }) {
   return (
     <>
       <div className="stats">
-        <Stat n={t.on_site} label="On site" tone="green" icon="🏢" />
-        <Stat n={t.telework} label="Remote" tone="blue" icon="🏠" />
-        <Stat n={t.unavailable} label="Unavailable" tone="yellow" icon="🌴" />
-        <Stat n={pkg.employees.filter((e) => e.notify).length} label="To notify" tone="red" icon="🔔" />
+        <Stat n={t.on_site} label="On site" tone="green" />
+        <Stat n={t.telework} label="Remote" tone="blue" />
+        <Stat n={t.unavailable} label="Unavailable" tone="yellow" />
+        <Stat n={pkg.employees.filter((e) => e.notify).length} label="To notify" tone="red" />
       </div>
       {['onsite', 'teleworking', 'on_detail', 'leave'].map((g) => {
         const list = pkg.employees.filter((e) => e.status === g)
@@ -347,14 +344,14 @@ function People({ a }) {
         const n = list.filter((e) => e.notify).length
         return (
           <details key={g} className="group">
-            <summary><span>{STATUS[g].icon} {STATUS[g].label}</span><span>{list.length} {list.length === 1 ? 'person' : 'people'}{n ? `, ${n} to notify` : ', no messages'}</span></summary>
+            <summary><span>{STATUS[g].label}</span><span>{list.length} {list.length === 1 ? 'person' : 'people'}{n ? `, ${n} to notify` : ', no messages'}</span></summary>
             {list.map((e) => (
               <div key={e.id} className={`person ${e.notify ? 'yes' : 'no'}`}>
-                <span className="bell">{e.notify ? '🔔' : '🔕'}</span>
+                <span className="bell" title={e.notify ? 'Notify' : 'Not notified'} />
                 <span className="p-name">{e.name}</span>
-                <span className="p-ag">{e.agency}{e.work_location === 'field' ? ' 🌱 field' : ''}</span>
-                <span className="p-act">{personAction(e, ags[e.agency])}{e.accessibility_needs ? ' ♿' : ''}</span>
-                <span className="p-ch">{e.channels.map((c) => <span key={c} title={c}>{CHANNEL[c]}</span>)}</span>
+                <span className="p-ag">{e.agency}{e.work_location === 'field' ? ', field' : ''}</span>
+                <span className="p-act">{personAction(e, ags[e.agency])}{e.accessibility_needs ? ' (accessibility needs)' : ''}</span>
+                <span className="p-ch">{e.channels.map((c) => <span key={c} className="ch">{CHANNEL[c]}</span>)}</span>
               </div>
             ))}
           </details>
@@ -363,8 +360,8 @@ function People({ a }) {
     </>
   )
 }
-function Stat({ n, label, tone, icon }) {
-  return <div className={`stat ${tone}`}><div className="stat-n">{n}</div><div className="stat-l">{icon} {label}</div></div>
+function Stat({ n, label, tone }) {
+  return <div className={`stat ${tone}`}><div className="stat-n">{n}</div><div className="stat-l">{label}</div></div>
 }
 
 function FacilityCheck({ fs, onSaved }) {
@@ -372,13 +369,13 @@ function FacilityCheck({ fs, onSaved }) {
   const [saving, setSaving] = useState(false)
   useEffect(() => setS(fs), [fs])
   if (!s) return null
-  const rows = [['⚡', 'power', ['ok', 'generator', 'out']], ['🚰', 'water', ['ok', 'out']], ['🏠', 'roof', ['ok', 'damaged']], ['🚗', 'roads', ['open', 'limited', 'impassable']]]
+  const rows = [['power', ['ok', 'generator', 'out']], ['water', ['ok', 'out']], ['roof', ['ok', 'damaged']], ['roads', ['open', 'limited', 'impassable']]]
   const dirty = JSON.stringify(s) !== JSON.stringify(fs)
   return (
     <div className="fac">
-      {rows.map(([ic, k, vals]) => (
+      {rows.map(([k, vals]) => (
         <div key={k} className="fac-row">
-          <span>{ic} {k}</span>
+          <span>{k}</span>
           <div className="seg">{vals.map((v) => <button key={v} className={s[k] === v ? (v === 'ok' || v === 'open' ? 'on green' : 'on red') : ''} onClick={() => setS({ ...s, [k]: v })}>{v}</button>)}</div>
         </div>
       ))}
@@ -412,7 +409,7 @@ function Ask({ a, onScenario, pending, clearPending }) {
   useEffect(() => { if (pending) { send(pending); clearPending() } }, [pending]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <section className="card ask">
-      <div className="card-h">🤖 Ask the agent</div>
+      <div className="card-h">Ask the agent</div>
       <div className="small">Hypotheticals run through the same rules and are never saved.</div>
       <div className="msgs" ref={box}>
         {msgs.map((m, i) => (
@@ -420,7 +417,7 @@ function Ask({ a, onScenario, pending, clearPending }) {
             {m.who === 'agent' && <Leaf size={28} />}
             <div className="bubble">
               {m.text}
-              {m.tools?.length > 0 && <div className="tools">{m.tools.map((t, j) => <span key={j}>🔧 {t}</span>)}{m.hypo && <span className="hy">🧪 hypothetical</span>}</div>}
+              {m.tools?.length > 0 && <div className="tools">{m.tools.map((t, j) => <span key={j}>{t}</span>)}{m.hypo && <span className="hy">hypothetical</span>}</div>}
             </div>
           </div>
         ))}
