@@ -5,7 +5,7 @@ import { POSTURE, agencyAction, clean, fmt } from './lib'
 
 /* ---------- Decide ---------- */
 export function Decide({ a, chosen, setChosen, go }) {
-  if (!a) return <div className="page start fade"><h2 className="page-h">Make the call</h2><p className="quiet">Run an analysis first.</p><button className="btn green huge" onClick={() => go('start')}>Start analysis</button></div>
+  if (!a) return <div className="page start fade"><h2 className="page-h">Make the Call</h2><p className="quiet">Run an analysis first.</p><button className="btn green huge" onClick={() => go('start')}>Start Analysis</button></div>
   return <DecideInner a={a} chosen={chosen} setChosen={setChosen} />
 }
 
@@ -27,7 +27,7 @@ function DecideInner({ a, chosen, setChosen }) {
   }
   return (
     <div className="page">
-      <h2 className="page-h">Make the call</h2>
+      <h2 className="page-h">Make the Call</h2>
       <p className="tagline">The system recommends. You decide.</p>
       <div className="opts">
         {r.options.map((o) => (
@@ -37,7 +37,7 @@ function DecideInner({ a, chosen, setChosen }) {
           </button>
         ))}
         <button className={`opt ${chosen === 'CUSTOM' ? 'on' : ''}`} onClick={() => setChosen('CUSTOM')}>
-          <span className="opt-t">Write my own</span>
+          <span className="opt-t">Write My Own</span>
         </button>
       </div>
       {chosen === 'CUSTOM' && <input className="inp" placeholder="Your decision, for example: Open 10 AM to 2 PM" value={custom} onChange={(e) => setCustom(e.target.value)} />}
@@ -45,7 +45,7 @@ function DecideInner({ a, chosen, setChosen }) {
       <textarea className="inp" rows={4} placeholder="What did you weigh? This is saved with all the evidence." value={reason} onChange={(e) => setReason(e.target.value)} />
       <div className="row">
         <input className="inp by" value={by} onChange={(e) => setBy(e.target.value)} aria-label="Decided by" />
-        <button className="btn green big" disabled={!ok || busy} onClick={submit}>{busy ? 'Saving…' : 'Submit decision'}</button>
+        <button className="btn green big" disabled={!ok || busy} onClick={submit}>{busy ? 'Saving…' : 'Submit Decision'}</button>
       </div>
       {!ok && <div className="quiet small">Pick an option and write at least one sentence.</div>}
       {err && <div className="alert red">{err}</div>}
@@ -71,7 +71,7 @@ export function Records() {
   const load = async (id) => { if (!detail[id]) { const d = await api.record(id); setDetail((m) => ({ ...m, [id]: d })) } }
   return (
     <div className="page">
-      <h2 className="page-h">Decision record</h2>
+      <h2 className="page-h">Decision Record</h2>
       {!list ? <p className="quiet">Loading…</p> : !list.length ? <p className="quiet">No decisions yet.</p> : list.map((r) => (
         <section key={r.record_id} className="card rec fade">
           <div className="row between">
@@ -130,13 +130,13 @@ export function Settings({ onSaved, simulate, setSimulate }) {
       <h2 className="page-h">Settings</h2>
       <p className="tagline">Local demo only. In production the key comes from the server.</p>
       <section className="card fade settings">
-        <div className="card-h">Anthropic API key</div>
+        <div className="card-h">Anthropic API Key</div>
         {st && <div className="row"><span className={`chip ${st.key_set ? 'green' : 'yellow'}`}>{st.key_set ? `Saved, ends in ${st.key_last4}` : 'No key yet'}</span>
           {st.model_id && <span className="chip blue">Model: {st.model_id}</span>}</div>}
         <input className="inp" type="password" autoComplete="off" placeholder="sk-ant-..." value={key} onChange={(e) => setKey(e.target.value)} />
         <div className="row">
-          <button className="btn green" disabled={busy || key.length < 20} onClick={save}>Save key</button>
-          <button className="btn" disabled={busy || !st?.key_set} onClick={test}>Test connection</button>
+          <button className="btn green" disabled={busy || key.length < 20} onClick={save}>Save Key</button>
+          <button className="btn" disabled={busy || !st?.key_set} onClick={test}>Test Connection</button>
         </div>
         {msg && <div className={`alert ${msg.tone}`}>{msg.text}</div>}
         <ul className="bul small quiet">
@@ -147,7 +147,7 @@ export function Settings({ onSaved, simulate, setSimulate }) {
       </section>
       <ResetFacility />
       <section className="card fade settings">
-        <div className="card-h">Test mode</div>
+        <div className="card-h">Test Mode</div>
         <div className="small">Simulates an NWS outage to show the system never defaults to Open when weather data is missing.</div>
         <div className="row" style={{ marginTop: 10 }}>
           <div className="seg">
@@ -170,12 +170,12 @@ function ClearRecords() {
   }
   return (
     <section className="card fade settings">
-      <div className="card-h">Clear test records</div>
+      <div className="card-h">Clear Test Records</div>
       <div className="quiet small">For rehearsals only. Records cannot be deleted from the record page. Cleared records are archived on this computer.</div>
       <div className="row" style={{ marginTop: 10 }}>
         {step === 0 && <button className="btn" onClick={() => { setStep(1); setMsg(null) }}>Clear test records…</button>}
         {step === 1 && <><span className="alert red" style={{ margin: 0 }}>Are you sure? This empties the decision record.</span>
-          <button className="btn red-btn" onClick={clear}>Yes, clear</button><button className="btn" onClick={() => setStep(0)}>Cancel</button></>}
+          <button className="btn red-btn" onClick={clear}>Yes, Clear</button><button className="btn" onClick={() => setStep(0)}>Cancel</button></>}
       </div>
       {msg && <div className="alert green">{msg}</div>}
     </section>
@@ -190,9 +190,9 @@ function ResetFacility() {
   }
   return (
     <section className="card fade settings">
-      <div className="card-h">Building check</div>
+      <div className="card-h">Building Check</div>
       <div className="small">Test values (like power out) stay until reset. Re-analyze afterwards.</div>
-      <div className="row" style={{ marginTop: 10 }}><button className="btn green" onClick={reset}>Reset building check to all normal</button></div>
+      <div className="row" style={{ marginTop: 10 }}><button className="btn green" onClick={reset}>Reset Building Check to All Normal</button></div>
       {msg && <div className="alert green">{msg}</div>}
     </section>
   )
@@ -201,7 +201,7 @@ function ResetFacility() {
 export function About() {
   return (
     <div className="page fade about">
-      <h2 className="page-h">About us</h2>
+      <h2 className="page-h">About Us</h2>
       <p className="about-lead">Data-driven weather analysis for USDA facility closure decisions.</p>
       <ul className="bul">
         <li>Live NWS, NOAA river, Entergy power and LA 511 road data</li>

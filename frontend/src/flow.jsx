@@ -49,7 +49,7 @@ export function SignalList({ signals }) {
     </ul>
   )
 }
-export function CopyBtn({ text, label = 'Copy to email' }) {
+export function CopyBtn({ text, label = 'Copy to Email' }) {
   const [done, setDone] = useState(false)
   return (
     <button className="btn green" onClick={() => { navigator.clipboard?.writeText(text); setDone(true); setTimeout(() => setDone(false), 1500) }}>
@@ -60,22 +60,23 @@ export function CopyBtn({ text, label = 'Copy to email' }) {
 function DateLines({ asOf, live = true }) {
   return (
     <div className="date-lines">
-      <div><b>Data updated:</b> {ago(asOf)}{live ? ' (live)' : ''}</div>
+      <div><b>Data Updated:</b> {ago(asOf)}{live ? ' (live)' : ''}</div>
     </div>
   )
 }
 
 /* ------------------------------------------------------------------ 7-day outlook */
-export function Outlook({ days }) {
+export function Outlook({ days, onPick, busy }) {
   if (!days) return null
   return (
     <section className="fc">
-      <h2 className="fc-h">7-day forecast</h2>
+      <h2 className="fc-h">7-Day Forecast</h2>
       <div className="fc-list">
         {days.map((d) => {
           const badge = d.date === days[0].date ? 'Today' : null
           return (
-            <div key={d.date} className="fc-row" title={d.short || ''}>
+            <button key={d.date} className="fc-row" disabled={busy} onClick={() => !d.closed && onPick(d.date)}
+              title={d.short || ''} data-hover={d.closed ? 'Office Closed, No Decision Needed' : 'Analyze This Day →'}>
               <div className="fc-day"><b>{d.weekday}</b><span>{d.label}</span></div>
               <div className="fc-e">{d.emoji}</div>
               <div className="fc-wx">{d.temp_f != null ? `${d.temp_f}°` : ''}{d.precip_pct ? <span> 💧{d.precip_pct}%</span> : null}</div>
@@ -83,7 +84,7 @@ export function Outlook({ days }) {
                 {badge && <span className="fc-badge">{badge}</span>}
                 <span>{d.closed ? 'Office closed' : `${POSTURE[d.recommended]?.word || 'Decide'}, hazard ${d.level}`}</span>
               </div>
-            </div>
+            </button>
           )
         })}
       </div>
@@ -97,7 +98,7 @@ export function StartPage({ onStart }) {
     <div className="page startpage simple fade">
       <div className="sp-center">
         <h1 className="sp-name">{FACILITY}</h1>
-        <button className="start-btn" onClick={() => onStart()}>Start analysis</button>
+        <button className="start-btn" onClick={() => onStart()}>Start Analysis</button>
       </div>
     </div>
   )
@@ -165,6 +166,17 @@ export function Progress({ sq, dayIso }) {
 const maxLevel = (r, kind) => Math.max(0, ...r.signals.filter((s) => s.kind === kind).map((s) => s.level))
 const Missing = () => <div>Data unavailable, treated as unknown</div>
 
+function Tldr({ r, live, worse, showAlerts }) {
+  return (
+    <ul className="tldr">
+      <li><b>Building:</b> {r.recommended ? POSTURE[r.recommended].action : 'Weather data missing, decide manually'}</li>
+      {r.agencies.map((g) => <li key={g.code}><b>{AGENCY_FULL[g.code] || g.code}:</b> {agencyLine(g)}</li>)}
+      <li><b>Hazard:</b> {r.level} of 4 ({LEVEL[r.level].name}), confidence {r.confidence.toLowerCase()}</li>
+      {showAlerts && live.length > 0 && <li><b>Active NWS Alerts:</b> {[...new Set(live.map((x) => x.event))].join(', ')}</li>}
+      {worse.length > 0 && <li><b>Heads Up:</b> {worse.map((d) => `${d.weekday} ${d.label} hazard ${d.level} (${POSTURE[d.recommended]?.word || 'decide'})`).join(', ')}</li>}
+    </ul>
+  )
+}
 const agencyLine = (g) => {
   const bits = [POSTURE[g.posture].action]
   if (g.field_work === 'suspended') bits.push('stop field work')
@@ -172,7 +184,7 @@ const agencyLine = (g) => {
   return bits.join(', ')
 }
 
-export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, pendingQuestion, clearPending, busy }) {
+export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, onPickDay, pendingQuestion, clearPending, busy }) {
   const [scenario, setScenario] = useState(null)
   useEffect(() => { window.scrollTo(0, 0) }, [a.id])
   const r = scenario ? scenario.rules : a.rules
@@ -189,6 +201,7 @@ export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, pen
   const today = situation?.outlook?.[0]
   const todayIso = today?.date || new Date().toLocaleDateString('en-CA')
   const todayClosed = today?.closed
+  const chosen = !!r.window.chosen && !r.window.is_today
   // holidays between today and the next workday, e.g. "Monday, Oct 12 is Columbus Day"
   const skippedNote = (r.window.skipped || []).map((x) => x.split(': ')).filter(([d]) => d.split(' ')[1] !== todayIso)
     .map(([d, n]) => `${dayLong(d.split(' ')[1])} is ${n.replace(' (federal holiday)', '')}`).join(', ')
@@ -213,7 +226,7 @@ export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, pen
               {inp.outage ? <><OutageGauge key={inp.outage.pct} pct={inp.outage.pct} size={190} /><div className="keynum c">{inp.outage.customers_out.toLocaleString()}<small>homes out</small></div></> : <Missing />}
             </div>
             <div className="tile reveal">
-              <div className="tile-h">Wind now <span className={`dot ${levelTone(maxLevel(r, 'wind'))}`} /></div>
+              <div className="tile-h">Wind Now <span className={`dot ${levelTone(maxLevel(r, 'wind'))}`} /></div>
               {nowWind ? <Wind mph={nowWind.wind_mph} /> : <Missing />}
               {peak && !scenario && <div className="tile-f">Peak {peak.wind_mph} mph on {r.window.day}</div>}
             </div>
@@ -226,63 +239,74 @@ export function ResultsPage({ a, situation, onReplay, onReanalyze, onDecide, pen
           {scenario && (
             <div className="hypo-bar">
               <span>Hypothetical, not saved: {scenario.changed.join(', ')}</span>
-              <button className="btn sm" onClick={() => setScenario(null)}>Back to live data</button>
+              <button className="btn sm" onClick={() => setScenario(null)}>Back to Live Data</button>
             </div>
           )}
           <section className={`card rec ${scenario ? 'hypo' : ''}`} key={'r' + (scenario ? scenario.changed.join() : 'live')}>
-            <div className="card-h">Agent recommendation</div>
-            <div className="tldr-h">Today, {dayLong(todayIso)}</div>
-            {r.window.is_today ? null : (
-              <ul className="tldr">
-                <li><b>Office:</b> {todayClosed === 'Already closed today' ? 'closed for the day, office hours are over' : `closed (${(todayClosed || 'not a workday').toLowerCase()})`}. No closure decision needed today.</li>
-                <li><b>Right now:</b> {live.length ? `active NWS alerts: ${[...new Set(live.map((x) => x.event))].join(', ')}` : 'all clear, no active NWS alerts'}</li>
-              </ul>
-            )}
+            <h2 className="rec-title">Agent Recommendation</h2>
+
+            <div className="rec-sec">
+              <h3 className="rec-h">Today, {dayLong(todayIso)}</h3>
+              {!r.window.is_today && (
+                <ul className="tldr">
+                  <li><b>Office:</b> {todayClosed === 'Already closed today' ? 'closed for the day, office hours are over' : todayClosed ? `closed (${todayClosed.toLowerCase()})` : 'open today'}.{todayClosed ? ' No closure decision needed today.' : ''}</li>
+                  <li><b>Right Now:</b> {live.length ? `active NWS alerts: ${[...new Set(live.map((x) => x.event))].join(', ')}` : 'all clear, no active NWS alerts'}</li>
+                </ul>
+              )}
+              {r.window.is_today && <Tldr r={r} live={live} worse={worse} showAlerts />}
+            </div>
+
             {!r.window.is_today && (
-              <>
-                <div className="tldr-h next">Next workday, {dayLong(r.window.date)}</div>
-                <p className="tldr-why">Today is not a workday, so this recommendation is for the next day the office opens{skippedNote ? ` (${skippedNote})` : ''}.</p>
-              </>
+              <div className="rec-sec">
+                <h3 className="rec-h">{chosen ? 'Selected Day' : 'Next Workday'}, {dayLong(r.window.date)}</h3>
+                {chosen
+                  ? <p className="tldr-why">You picked this day from the 7-day forecast. <button className="linkbtn" onClick={() => onPickDay(null)} disabled={busy}>Back to Today</button></p>
+                  : <p className="tldr-why">Today is not a workday, so this recommendation is for the next day the office opens{skippedNote ? ` (${skippedNote})` : ''}.</p>}
+                <Tldr r={r} live={live} worse={worse} />
+              </div>
             )}
-            <ul className="tldr">
-              <li><b>Building:</b> {r.recommended ? POSTURE[r.recommended].action : 'Weather data missing, decide manually'}</li>
-              {r.agencies.map((g) => <li key={g.code}><b>{AGENCY_FULL[g.code] || g.code}:</b> {agencyLine(g)}</li>)}
-              <li><b>Hazard:</b> {r.level} of 4 ({LEVEL[r.level].name}), confidence {r.confidence.toLowerCase()}</li>
-              {live.length > 0 && r.window.is_today && <li><b>Active NWS alerts:</b> {[...new Set(live.map((x) => x.event))].join(', ')}</li>}
-              {worse.length > 0 && <li><b>Heads up:</b> {worse.map((d) => `${d.weekday} ${d.label} hazard ${d.level} (${POSTURE[d.recommended]?.word || 'decide'})`).join(', ')}</li>}
-            </ul>
-            {scenario ? <p className="small">The paragraph below is for live data. Hypotheticals are never saved.</p> : null}
-            <p className="rationale">{clean(a.rationale)}</p>
-            <div className="row between">
-              <span className="small">{a.rationale_by === 'template' ? 'Rules decide the level. Template text.' : 'Rules decide the level. The agent wrote the words.'}</span>
-              <CopyBtn text={clean(a.rationale)} />
+
+            <div className="rec-sec">
+              <h3 className="rec-h">Recommended Actions</h3>
+              {scenario && <p className="small">The actions below are for live data. Hypotheticals are never saved.</p>}
+              {a.points ? (
+                <>
+                  <ol className="rec-actions">{a.points.actions.map((x, i) => <li key={i}>{clean(x)}</li>)}</ol>
+                  <h4 className="rec-sub">Why</h4>
+                  <ul className="rec-reasons">{a.points.reasons.map((x, i) => <li key={i}>{clean(x)}</li>)}</ul>
+                </>
+              ) : <p className="rationale">{clean(a.rationale)}</p>}
+              <div className="row between rec-foot">
+                <span className="rec-note">{a.rationale_by === 'template' ? 'Rules Decide the Level. Template Text.' : 'Rules Decide the Level. The Agent Wrote the Words.'}</span>
+                <CopyBtn text={clean(a.rationale)} />
+              </div>
             </div>
           </section>
         </div>
 
         <aside className="res-side">
           <div className="side-btns">
-            <button className="btn green" onClick={onReplay}>Replay analysis</button>
+            <button className="btn green" onClick={onReplay}>Replay Analysis</button>
             <button className="btn green" onClick={onReanalyze} disabled={busy}>Re-analyze</button>
           </div>
-          {situation?.outlook && <Outlook days={situation.outlook} />}
+          {situation?.outlook && <Outlook days={situation.outlook} busy={busy} onPick={(d) => onPickDay(d === todayIso ? null : d)} />}
           <Ask a={a} onScenario={setScenario} pending={pendingQuestion} clearPending={clearPending} />
         </aside>
       </div>
 
       <div className="blocks">
-        <Block title="Thresholds and sources" sub={`${r.signals.length} signals`}>
+        <Block title="Thresholds and Sources" sub={`${r.signals.length} signals`}>
           <SignalList signals={r.signals} />
-          <h4>What would change this</h4>
+          <h4>What Would Change This</h4>
           <ul className="bul">{r.what_would_change.map((w, i) => <li key={i}>{clean(w)}</li>)}</ul>
         </Block>
         {!scenario && <Notices a={a} />}
         <Block title="People" sub={`${avail.total.on_site} on site, ${avail.total.telework} remote, ${avail.total.unavailable} unavailable`}>
           {!scenario ? <People a={a} /> : <p>Staff details are shown for live data only.</p>}
         </Block>
-        {!scenario && <Block title="Building check" sub="Manual report"><FacilityCheck fs={a.inputs.facility_status} onSaved={onReanalyze} /></Block>}
+        {!scenario && <Block title="Building Check" sub="Manual Report"><FacilityCheck fs={a.inputs.facility_status} onSaved={onReanalyze} /></Block>}
       </div>
-      <div className="center go"><button className="btn green huge" onClick={onDecide}>Go to decision →</button></div>
+      <div className="center go"><button className="btn green huge" onClick={onDecide}>Go to Decision →</button></div>
     </div>
   )
 }
@@ -301,7 +325,7 @@ function Notices({ a }) {
   const role = pkg.roles[tab]
   const title = (x) => x.agency ? x.title.replace(x.agency, AGENCY_NAME[x.agency]) : x.title
   return (
-    <Block title="Notice drafts" sub="6 roles, preview only">
+    <Block title="Notice Drafts" sub="6 roles, preview only">
       <div className="role-tabs">
         {pkg.roles.map((x, i) => <button key={i} className={i === tab ? 'on' : ''} onClick={() => setTab(i)}>{title(x)}</button>)}
       </div>
@@ -399,7 +423,7 @@ function Ask({ a, onScenario, pending, clearPending }) {
   useEffect(() => { if (pending) { send(pending); clearPending() } }, [pending]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <section className="card ask">
-      <div className="card-h">Ask the agent</div>
+      <div className="card-h">Ask the Agent</div>
       <div className="small">Hypotheticals run through the same rules and are never saved.</div>
       <div className="msgs" ref={box}>
         {msgs.map((m, i) => (

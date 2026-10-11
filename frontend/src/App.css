@@ -653,3 +653,22 @@ body, .card, .tile, .block, .tag, .bubble, .draft pre { color: var(--ink); }
 /* v14: today first, then next workday */
 .tldr-h.next { margin-top: 10px; color: var(--ink); }
 .tldr-why { margin: 0 0 8px; font-size: 16px; }
+
+/* v15: clickable forecast, recommendation hierarchy */
+button.fc-row { width: 100%; font: inherit; color: inherit; text-align: left; cursor: pointer; position: relative; overflow: hidden; transition: border-color .15s, box-shadow .15s; }
+button.fc-row::after { content: attr(data-hover); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.93); font-weight: 900; font-size: 17px; color: var(--usda); opacity: 0; transition: opacity .15s; }
+button.fc-row:hover:not(:disabled) { border-color: var(--usda); box-shadow: 0 6px 18px rgba(11,107,58,.12); }
+button.fc-row:hover:not(:disabled)::after { opacity: 1; }
+button.fc-row:disabled { cursor: wait; }
+.rec-title { font-size: 32px; font-weight: 900; letter-spacing: -.5px; margin: 0 0 6px; }
+.rec-sec { margin-top: 28px; }
+.rec-sec + .rec-sec { padding-top: 24px; border-top: 1px solid var(--line); }
+.rec-h { font-size: 23px; font-weight: 900; margin: 0 0 10px; }
+.rec-sub { font-size: 19px; font-weight: 900; margin: 18px 0 8px; }
+.card.rec .tldr { font-size: 19px; gap: 6px; }
+.card.rec .tldr-why { font-size: 17px; margin: 0 0 10px; }
+.rec-actions { margin: 0; padding-left: 26px; display: grid; gap: 8px; font-size: 19px; font-weight: 700; }
+.rec-reasons { margin: 0; padding-left: 22px; display: grid; gap: 6px; font-size: 17px; }
+.rec-foot { margin-top: 20px; align-items: center; }
+.rec-note { color: var(--red); font-weight: 900; font-size: 17px; }
+.linkbtn { border: 0; background: none; padding: 0; margin-left: 6px; font: inherit; font-weight: 800; color: var(--usda); text-decoration: underline; cursor: pointer; }

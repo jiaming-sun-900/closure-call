@@ -6,7 +6,7 @@ import { About, Decide, Records, Settings } from './pages'
 import './App.css'
 
 const NAV = [
-  ['start', 'Start analysis'],
+  ['start', 'Start Analysis'],
   ['results', 'Results'],
   ['decide', 'Decide'],
   ['records', 'Records'],
@@ -39,11 +39,11 @@ export default function App() {
 
   const go = (k) => { window.location.hash = k; setPage(k); window.scrollTo(0, 0) }
 
-  const start = (day = selectedDay, question = null) => {
+  const start = (day = null, question = null) => {
     stop.current?.()
     sq.reset(); setError(null); setRunning('live')
     if (question) setPendingQ(question)
-    const target = day && situation && day !== situation.next_workday ? day : null
+    const target = day || null
     stop.current = streamAssess(simulate, async (ev) => {
       if (ev.type === 'step') sq.push(ev)
       else if (ev.type === 'result') {
@@ -80,7 +80,7 @@ export default function App() {
           ))}
         </nav>
         <nav className="tabs side-bottom">
-          <button className={page === 'about' && !running ? 'on' : ''} onClick={() => go('about')}><span className="nav-l">About us</span></button>
+          <button className={page === 'about' && !running ? 'on' : ''} onClick={() => go('about')}><span className="nav-l">About Us</span></button>
           <button className={page === 'settings' && !running ? 'on' : ''} onClick={() => go('settings')}><span className="nav-l">Settings</span></button>
         </nav>
       </aside>
@@ -89,11 +89,11 @@ export default function App() {
         {error && <div className="alert red">{error}</div>}
         {running ? <Progress sq={sq} dayIso={dayIso || new Date().toISOString().slice(0, 10)} /> : (
           <>
-            {page === 'start' && <StartPage situation={situation} selected={selectedDay} setSelected={setSelectedDay}
-              onStart={(d) => start(d)} />}
+            {page === 'start' && <StartPage onStart={() => { setSelectedDay(null); start(null) }} />}
             {page === 'results' && (a ? <ResultsPage a={a} facility={facility || a.facility} situation={situation} busy={!!running}
               onReplay={replay} onReanalyze={() => start(a.rules.window.chosen ? a.rules.window.date : null)} onDecide={() => go('decide')}
-              pendingQuestion={pendingQ} clearPending={() => setPendingQ(null)} /> : <StartPage situation={situation} selected={selectedDay} setSelected={setSelectedDay} onStart={(d) => start(d)} />)}
+              onPickDay={(d) => { setSelectedDay(d); start(d) }}
+              pendingQuestion={pendingQ} clearPending={() => setPendingQ(null)} /> : <StartPage onStart={() => { setSelectedDay(null); start(null) }} />)}
             {page === 'decide' && <Decide a={a} chosen={chosen} setChosen={setChosen} go={go} />}
             {page === 'records' && <Records />}
             {page === 'settings' && <Settings simulate={simulate} setSimulate={setSimulate} />}

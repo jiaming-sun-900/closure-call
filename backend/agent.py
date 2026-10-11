@@ -166,7 +166,8 @@ class RoleDraft(BaseModel):
 
 
 class Briefing(BaseModel):
-    rationale: str = Field(description="One paragraph (≤90 words) a manager can paste into an email")
+    actions: list[str] = Field(description="3 to 5 recommended actions in ASD-STE100 style: one imperative instruction per item, ≤20 words, no numbering")
+    reasons: list[str] = Field(description="3 to 5 short facts that support the actions: value, threshold, source, ≤25 words each, no bullets")
     drafts: list[RoleDraft]
 
 
@@ -181,9 +182,12 @@ Workflow:
    program managers = can the work continue, executive = what's affected and who can work). Keep every fact and number; do not
    add recipients or change any posture.
 
-Rationale paragraph: lead with the recommendation and operating day, then cite the specific data points (value, threshold crossed
-and by how much, source, time), confidence and why, how agencies differ, and the one change that would alter the recommendation.
-Plain text, no markdown. Never use em dashes or en dashes; use commas, colons or new lines. Do not mention holidays, weekends or why a day was chosen; just name the operating day. Short, verb-first sentences."""
+Briefing: write in ASD-STE100 Simplified Technical English. Use short sentences, active voice and simple words. No idioms.
+- actions: what the manager should do, in order. One instruction per item, imperative verb first, max 20 words.
+  Start with the building status for the operating day (name the day), then each agency, then field work, then the notices.
+- reasons: the facts behind the actions. One fact per item, max 25 words: the value, the threshold it crossed and by how much,
+  the source. Include the confidence, and the one change that would alter the recommendation.
+Write dates like "Tuesday, Oct 13", never ISO dates. Plain text, no markdown. Never use em dashes or en dashes; use commas, colons or new lines. Do not mention holidays, weekends or why a day was chosen; just name the operating day. Short, verb-first sentences."""
 
 
 def _model():
@@ -228,22 +232,35 @@ def _run_agent(ctx: Ctx, model) -> Briefing:
 
 
 # ---------------------------------------------------------------- templates (fallback)
-def template_rationale(r: dict, pkg: dict) -> str:
+def template_points(r: dict, pkg: dict) -> dict:
+    """Fallback actions and reasons in the same short style as the agent."""
     w = r["window"]
     day = {"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday", "Fri": "Friday"}.get(w["day"], w["day"])
     if r["recommended"] is None:
-        return f"Weather data from NWS is unavailable, so hazards for {day} cannot be ruled out. Please decide manually."
-    lbl = rules.POSTURE_LABELS[r["recommended"]].lower()
-    ag = " ".join(f"{a['code']}: {a['label'].lower()}" + (f", field work {a['field_work']}." if a["field_work"] else ".") for a in r["agencies"])
-    if not r["deciding"]:
-        return f"For {day}, the building can stay {lbl}. No weather, river, power or road reading crossed a threshold. {ag}"
-    s = r["deciding"][0]
-    t = pkg["availability"]["total"]
-    return (f"For {day}, we recommend the building stay {lbl}. The main driver is the {s['title'].lower()} "
-            f"({s['observed'].split(' (')[0]}), which reaches hazard level {r['level']} of 4. "
-            f"Agencies react differently because their risk tolerance differs. {ag} "
-            f"{t['on_site']} people can work on site and {t['telework']} remotely. "
-            f"{r['what_would_change'][0] if r['what_would_change'] else ''}").replace(" — ", ", ").replace("—", ",")
+        return {"actions": [f"Decide the status for {day} manually.", "Check the NWS website for alerts before you decide."],
+                "reasons": ["NWS weather data is not available. Hazards cannot be ruled out."]}
+    building = {"OPEN": "Keep the building open", "DELAYED_ARRIVAL": "Delay arrival", "EARLY_DEPARTURE": "Dismiss staff early",
+                "UNSCHEDULED_TELEWORK": "Allow unscheduled telework", "CLOSED_TELEWORK": "Close the building, telework continues",
+                "CLOSED": "Close the building"}[r["recommended"]]
+    actions = [f"{building} on {day}."]
+    for a in r["agencies"]:
+        if a["posture"] != r["recommended"]:
+            actions.append(f"{a['code']}: {rules.POSTURE_LABELS[a['posture']].replace(' — ', ', ').lower()}.")
+        if a["field_work"] in ("suspended", "restricted"):
+            actions.append(f"{a['code']}: {'stop' if a['field_work'] == 'suspended' else 'limit'} field work.")
+    actions.append("Send the notices to the staff marked Notify.")
+    reasons = [f"{s['title']}: {s['observed'].split(' (')[0]}. Threshold: {s['threshold']}." for s in r["deciding"][:3]] \
+        or ["No weather, river, power or road reading crossed a threshold."]
+    reasons.append(f"Confidence is {r['confidence'].lower()}.")
+    if r["what_would_change"]:
+        reasons.append(r["what_would_change"][0])
+    return {"actions": actions, "reasons": [x.replace(" — ", ", ").replace("—", ",") for x in reasons]}
+
+
+def points_text(p: dict) -> str:
+    """Plain text for email and the decision record."""
+    return ("Recommended actions:\n" + "\n".join(f"{i}. {a}" for i, a in enumerate(p["actions"], 1))
+            + "\n\nWhy:\n" + "\n".join(f"- {x}" for x in p["reasons"]))
 
 
 CACHE_PATH = DATA / "agent_cache.json"
@@ -258,7 +275,7 @@ def _fingerprint(r: dict, pkg: dict) -> str:
         "signals": [(s["title"], s["level"], s["observed"], s["exceed_by"]) for s in r["signals"]],
         "change": r["what_would_change"], "avail": pkg["availability"],
         "notify": [(e["id"], e["notify"], e["reason"]) for e in pkg["employees"]],
-        "model": model_info()["model_id"],
+        "model": model_info()["model_id"], "format": 3,
     }
     return hashlib.sha256(json.dumps(core, sort_keys=True, default=str).encode()).hexdigest()[:16]
 
@@ -302,7 +319,7 @@ def assess(facility: dict, at: datetime | None = None, simulate: str | None = No
         hit = _cache_get(fp)
         ctx.start("agent_write")
         ta = time.time()
-        if hit:
+        if hit and hit.get("actions"):
             briefing, by, cached = hit, f"Strands agent · {hit.get('model')} (cached)", True
             ctx.log("agent_write", ta, "Inputs unchanged, reused the agent's earlier briefing")
         else:
@@ -311,8 +328,8 @@ def assess(facility: dict, at: datetime | None = None, simulate: str | None = No
             try:
                 b = fut.result(timeout=AGENT_TIMEOUT_S)
                 nodash = lambda t: t.replace(" — ", ", ").replace("—", ", ").replace(" – ", ", ")
-                briefing = {"rationale": nodash(b.rationale), "drafts": {d.key: nodash(d.body) for d in b.drafts},
-                            "model": model_info()["model_id"]}
+                briefing = {"actions": [nodash(x) for x in b.actions], "reasons": [nodash(x) for x in b.reasons],
+                            "drafts": {d.key: nodash(d.body) for d in b.drafts}, "model": model_info()["model_id"]}
                 _cache_put(fp, briefing)
                 by = f"Strands agent · {model_info()['model_id']}"
                 ctx.agent_phase = False
@@ -330,9 +347,9 @@ def assess(facility: dict, at: datetime | None = None, simulate: str | None = No
             role["template_body"] = role["body"]
             role["body"] = briefing["drafts"].get(_role_key(role), role["body"])
             role["written_by"] = "agent" if _role_key(role) in briefing["drafts"] else "template"
-        rationale = briefing["rationale"]
+        points = {"actions": briefing["actions"], "reasons": briefing["reasons"]}
     else:
-        rationale = template_rationale(r, pkg)
+        points = template_points(r, pkg)
         for role in pkg["roles"]:
             role["written_by"] = "template"
     return {
@@ -347,7 +364,8 @@ def assess(facility: dict, at: datetime | None = None, simulate: str | None = No
         "data_status": ctx.status,
         "rules": r,
         "notifications": pkg,
-        "rationale": rationale,
+        "rationale": points_text(points),
+        "points": points,
         "rationale_by": by,
         "agent_error": agent_error,
         "trace": ctx.trace,
