@@ -782,3 +782,11 @@ button.fc-row:disabled { cursor: wait; }
 .day-pick span { font-size: 15px; font-weight: 700; }
 .day-pick i { font-style: normal; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.2; }
 @media (max-width: 900px) { .day-pick { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* v25: hazard types */
+.haz-table td { vertical-align: top; }
+.haz-table td:first-child { white-space: nowrap; }
+.haz-on td { background: var(--usda-l); }
+.haz-now { display: block; margin-top: 6px; width: fit-content; padding: 2px 10px; border-radius: 999px; background: var(--usda); color: #fff; font-size: 12px; font-weight: 800; }
+.about-haz { margin-bottom: 16px; }
+@media (max-width: 900px) { .haz-table td:first-child { white-space: normal; } }

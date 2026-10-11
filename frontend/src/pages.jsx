@@ -147,6 +147,7 @@ function Snapshot({ e }) {
     <ul className="bul">
       <li>Data as of {fmt(e.as_of, { month: 'short', day: 'numeric' })}</li>
       <li>System advice: {POSTURE[r.recommended]?.action || 'none'}, hazard {r.level} of 4</li>
+      {r.hazard_types && <li>Hazard type: {r.hazard_types.length ? r.hazard_types.map((h) => h.type).join(', ') : 'none above threshold'}</li>}
       <li>{r.agencies.map((g) => `${g.code}: ${agencyAction(g)}`).join('; ')}</li>
     </ul>
     <h4 className="blk-h">Data Sources</h4>
@@ -238,7 +239,7 @@ function ResetFacility() {
 
 const HOW = [
   ['Gather', 'Seven live checks: NWS alerts and forecast, NOAA river gauge, Entergy outages, LA 511 roads, building checks and the staff roster.'],
-  ['Apply Rules', 'Fixed rules compare each reading with a published threshold and set the hazard level. Same data, same result.'],
+  ['Apply Rules', 'Fixed rules name the hazard type (hurricane and wind, or flooding), compare each reading with a published threshold and set the level. Same data, same result.'],
   ['Write', 'A Strands agent writes the recommendation, the reasons and a notice for each role. It cannot change the level.'],
   ['Decide', 'The manager picks the status and writes a reason. The decision and all evidence go on record.'],
 ]
@@ -260,6 +261,7 @@ export function About() {
       </section>
       <section className="about-sec">
         <h3 className="about-h">How It Works</h3>
+        <p className="about-p about-haz">One facility, two hazard types handled in depth: <b>hurricanes and wind</b>, and <b>flooding</b>. Power, roads and building checks add the local impact.</p>
         <ol className="about-steps">
           {HOW.map(([t, d], i) => <li key={t}><span className="about-n">{i + 1}</span><b>{t}</b><span>{d}</span></li>)}
         </ol>

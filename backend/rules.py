@@ -47,6 +47,38 @@ INFO_EVENTS = {"Tropical Cyclone Local Statement", "Rip Current Statement", "Bea
                "Special Weather Statement", "Hydrologic Outlook", "Coastal Flood Statement", "Air Quality Alert"}
 MARINE_HINTS = ("Marine", "Small Craft", "Gale", "Hurricane Force Wind", "Brisk Wind", "Hazardous Seas")
 
+# The two hazard types this system handles in depth. Every other NWS alert goes through the CAP fallback rule.
+# Power, roads and building checks are impact signals: they raise the level but are not a hazard type.
+HAZARD_CATALOG = [
+    {"type": "Hurricane and Wind",
+     "triggers": "Hurricane, Tropical Storm and Storm Surge Watch/Warning; High Wind Warning; Wind Advisory; forecast wind ≥25 mph during the work day",
+     "basis": "NWS tropical products (warning = expected within 36 h, watch = possible within 48 h); NWS wind advisory and high wind criteria",
+     "response": "Watch: advance notice the evening before. Warning: field staff stop work and return first, then the building closes or teleworks."},
+    {"type": "Flooding",
+     "triggers": "Flood and Flash Flood Watch/Warning; Calcasieu River at action, minor, moderate or major flood stage",
+     "basis": "NWS/NWPS flood categories for gauge LCHL1; NWS 'Turn Around, Don't Drown'",
+     "response": "Commuters avoid flooded roads; field staff stay away from low-lying land and waterways; office staff leave early or telework."},
+    {"type": "Other Severe Weather",
+     "triggers": "Any other NWS alert, such as a Tornado Warning (shelter in place)",
+     "basis": "CAP v1.2 severity × urgency fallback rule; OPM 'Shelter in Place'",
+     "response": "Level set by severity and urgency, so any real alert runs the full workflow."},
+]
+HAZARD_OF_KIND = {"gauge": "Flooding", "wind": "Hurricane and Wind"}
+
+
+def hazard_type(sig: dict) -> str | None:
+    if sig["kind"] in HAZARD_OF_KIND:
+        return HAZARD_OF_KIND[sig["kind"]]
+    if sig["kind"] != "nws":
+        return None
+    t = sig["title"]
+    if "Flood" in t:
+        return "Flooding"
+    if any(k in t for k in ("Hurricane", "Tropical", "Storm Surge", "Wind")):
+        return "Hurricane and Wind"
+    return "Other Severe Weather"
+
+
 GAUGE_LEVELS = [("major", 4), ("moderate", 3), ("minor", 2), ("action", 1)]
 GAUGE_BASIS = "NWS/NWPS flood categories: action → minor (roads) → moderate (structures, evacuations) → major"
 # Share of parish electric customers without power
@@ -281,6 +313,14 @@ def evaluate(*, alerts, forecast, gauge, outage, facility_status, facility: dict
             sigs.append(s)
     sigs += facility_signals(facility_status)
     sigs.sort(key=lambda s: s["level"], reverse=True)
+    for s in sigs:
+        s["hazard_type"] = hazard_type(s)
+    hazards = {}
+    for s in sigs:  # sorted by level, so the first signal of each type is its strongest
+        if s["hazard_type"] and s["hazard_type"] not in hazards:
+            hazards[s["hazard_type"]] = {"type": s["hazard_type"], "level": s["level"], "from": []}
+        if s["hazard_type"] and s["title"] not in hazards[s["hazard_type"]]["from"]:
+            hazards[s["hazard_type"]]["from"].append(s["title"])
 
     level = sigs[0]["level"] if sigs else 0
     deciding = [s for s in sigs if s["level"] == level and level > 0]
@@ -344,6 +384,8 @@ def evaluate(*, alerts, forecast, gauge, outage, facility_status, facility: dict
         "recommended_why": b_why,
         "agencies": agencies,
         "signals": sigs,
+        "hazard_types": list(hazards.values()),
+        "hazard_catalog": HAZARD_CATALOG,
         "deciding": deciding,
         "ignored_alerts": ignored,
         "shelter": shelter, "advance": advance,

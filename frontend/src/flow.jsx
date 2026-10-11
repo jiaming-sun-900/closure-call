@@ -207,12 +207,29 @@ export function Progress({ sq, dayIso }) {
 const maxLevel = (r, kind) => Math.max(0, ...r.signals.filter((s) => s.kind === kind).map((s) => s.level))
 const Missing = () => <div>Data unavailable, treated as unknown</div>
 
+// the hazard types the rules cover, with the active ones marked
+function HazardTable({ cat, active }) {
+  return (
+    <table className="src-table haz-table">
+      <thead><tr><th>Hazard Type</th><th>Triggers</th><th>Response</th></tr></thead>
+      <tbody>{cat.map((h) => (
+        <tr key={h.type} className={active.includes(h.type) ? 'haz-on' : ''}>
+          <td><b>{h.type}</b>{active.includes(h.type) && <span className="haz-now">Active Now</span>}</td>
+          <td>{clean(h.triggers)}<div className="src-at">Basis: {clean(h.basis)}</div></td>
+          <td>{clean(h.response)}</td>
+        </tr>
+      ))}</tbody>
+    </table>
+  )
+}
+
 function Tldr({ r, live, worse, showAlerts }) {
   return (
     <ul className="tldr">
       <li><b>Building:</b> {r.recommended ? POSTURE[r.recommended].action : 'Weather data missing, decide manually'}</li>
       {r.agencies.map((g) => <li key={g.code}><b>{AGENCY_FULL[g.code] || g.code}:</b> {agencyLine(g)}</li>)}
-      <li><b>Hazard:</b> {r.level} of 4 ({LEVEL[r.level].name}), confidence {r.confidence.toLowerCase()}</li>
+      <li><b>Hazard Type:</b> {r.hazard_types?.length ? r.hazard_types.map((h) => `${h.type} (${h.from.join(', ')})`).join('; ') : 'None above threshold'}</li>
+      <li><b>Hazard Level:</b> {r.level} of 4 ({LEVEL[r.level].name}), confidence {r.confidence.toLowerCase()}</li>
       {showAlerts && live.length > 0 && <li><b>Active NWS Alerts:</b> {[...new Set(live.map((x) => x.event))].join(', ')}</li>}
       {worse.length > 0 && <li><b>Heads Up:</b> {worse.map((d) => `${d.weekday} ${d.label} hazard ${d.level} (${POSTURE[d.recommended]?.word || 'decide'})`).join(', ')}</li>}
     </ul>
@@ -340,6 +357,7 @@ export function ResultsPage({ a, situation, onReanalyze, onDecide, onPickDay, pe
           <Sources inputs={inp} status={a.data_status} />
           <h4 className="blk-h">Thresholds Crossed</h4>
           <SignalTable signals={r.signals} />
+          {r.hazard_catalog && <><h4 className="blk-h">Hazards We Handle</h4><HazardTable cat={r.hazard_catalog} active={(r.hazard_types || []).map((h) => h.type)} /></>}
           <h4 className="blk-h">What Would Change This</h4>
           <ul className="bul">{r.what_would_change.map((w, i) => <li key={i}>{clean(w)}</li>)}</ul>
         </Block>

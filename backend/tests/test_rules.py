@@ -109,3 +109,13 @@ def test_notifications_by_status():
     assert "phone" not in emp["Angela Landry"]["channels"]  # deaf → text only
     roles = {x["role"] for x in pkg["roles"]}
     assert {"facility", "agency", "program", "executive"} <= roles
+
+
+def test_hazard_type_names():
+    from rules import hazard_type
+    assert hazard_type({"kind": "gauge", "title": "River at minor flood stage"}) == "Flooding"
+    assert hazard_type({"kind": "nws", "title": "Flash Flood Warning"}) == "Flooding"
+    assert hazard_type({"kind": "nws", "title": "Tropical Storm Warning"}) == "Hurricane and Wind"
+    assert hazard_type({"kind": "wind", "title": "Forecast wind during work day"}) == "Hurricane and Wind"
+    assert hazard_type({"kind": "nws", "title": "Tornado Warning"}) == "Other Severe Weather"
+    assert hazard_type({"kind": "power", "title": "Parish power outages"}) is None
