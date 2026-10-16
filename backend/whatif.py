@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 import notify
 import rules
-from agent import _model, _redact, model_info
+from agent import _model, _redact, llm_budget_ok, model_info
 
 CACHE = Path(__file__).parent / "data" / "whatif_cache.json"
 
@@ -93,7 +93,9 @@ def ask(a: dict, facility: dict, question: str) -> dict:
 
     model = _model()
     if model is None:
-        return {"answer": "Add an Anthropic key in Settings to ask the agent.", "scenario": None, "trace": []}
+        return {"answer": "Asking the agent needs an Anthropic API key. It is off on the public demo; run the app locally with a key to try it.", "scenario": None, "trace": []}
+    if not llm_budget_ok():
+        return {"answer": "This demo server has reached its hourly AI limit. Try again later.", "scenario": None, "trace": []}
 
     from strands import Agent, tool
     state = {"scenario": None, "trace": []}

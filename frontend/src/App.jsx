@@ -78,7 +78,7 @@ export default function App() {
         </nav>
         <nav className="tabs side-bottom">
           <button className={page === 'about' && !running ? 'on' : ''} onClick={() => go('about')}><span className="nav-l">About Us</span></button>
-          <button className={page === 'settings' && !running ? 'on' : ''} onClick={() => go('settings')}><span className="nav-l">Settings</span></button>
+          {!facility?.public && <button className={page === 'settings' && !running ? 'on' : ''} onClick={() => go('settings')}><span className="nav-l">Settings</span></button>}
         </nav>
       </aside>
 

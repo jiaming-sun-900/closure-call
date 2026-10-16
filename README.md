@@ -2,8 +2,9 @@
 
 **Hack Midwest 2026 · USDA AI Challenge "Closure Call" · Best Use of Strands Agents SDK · Akamai Cloud AI Challenge**
 
-### Live demo: **https://172-236-110-231.ip.linodeusercontent.com**
-Runs on Akamai Cloud (Linode, Chicago) with HTTPS. No login. Live NWS data.
+### Live demo: **https://closure-call.onrender.com**
+No login. Live NWS data. Hosted on Render's free plan, so the first visit after a quiet spell takes about a minute to wake up.
+The public demo has no model key: the rules, notification package and decision record all run live, and the briefing uses template text. Run locally with an Anthropic key to see the Strands agent write it.
 
 Built by Jiaming Sun and Zoe at Hack Midwest 2026.
 
@@ -27,8 +28,10 @@ The agent gathers data (data tools in parallel), calls the rules engine, then wr
 ## Hazard types
 Two hazard types handled in depth: **hurricane and wind** (tropical watches/warnings, high wind, forecast wind) and **flooding** (flood and flash flood alerts, Calcasieu River flood stages). Any other NWS alert goes through a CAP severity × urgency fallback rule. Power, roads and building checks are impact signals.
 
-## Deployment (Akamai Cloud)
-FastAPI serves the API and the built frontend from one origin behind Caddy (automatic HTTPS) on a Linode Nanode in Chicago. See `deploy/`.
+## Deployment
+One Docker image (`Dockerfile`): FastAPI serves the API and the built frontend from one origin. `render.yaml` deploys it to Render, and every push to `main` redeploys. The public service runs without `ANTHROPIC_API_KEY`. If a key is added, `LLM_CALLS_PER_HOUR` caps uncached model calls and falls back to template text past the cap.
+
+During the hackathon it ran on Akamai Cloud (Linode Nanode, Chicago) behind Caddy; those scripts are kept in `deploy/`.
 
 ## Run locally
 ```bash

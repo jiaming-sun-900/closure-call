@@ -1,0 +1,14 @@
+# Render Blueprint: New → Blueprint → pick this repo. Free plan sleeps after 15 min idle (first visit ~1 min to wake).
+services:
+  - type: web
+    name: closure-call
+    runtime: docker
+    plan: free
+    region: ohio
+    healthCheckPath: /health
+    autoDeploy: true
+    # No ANTHROPIC_API_KEY on purpose: the public demo runs the rules and writes template text.
+    # To turn the agent on, add the key in the dashboard; this cap then limits uncached model calls.
+    envVars:
+      - key: LLM_CALLS_PER_HOUR
+        value: "20"

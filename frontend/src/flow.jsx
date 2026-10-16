@@ -350,7 +350,7 @@ export function ResultsPage({ a, situation, onReanalyze, onDecide, onPickDay, pe
                 </>
               ) : <p className="rationale">{clean(a.rationale)}</p>}
               <div className="rec-foot">
-                <span className="rec-note">{a.rationale_by === 'template' ? 'Rules Decide the Level. Template Text.' : 'Rules Decide the Level. The Agent Wrote the Words.'}</span>
+                <span className="rec-note">{a.rationale_by === 'template' ? (a.agent_error ? 'Rules Decide the Level. Template Text.' : 'Rules Decide the Level. Template Text, AI Writing Is Off Here.') : 'Rules Decide the Level. The Agent Wrote the Words.'}</span>
               </div>
             </div>
           </section>

@@ -49,7 +49,8 @@ def health():
 
 @app.get("/facility")
 def get_facility():
-    return {**load_facility(), "status": agent.load_facility_status(), "model": agent.model_info()}
+    return {**load_facility(), "status": agent.load_facility_status(), "model": agent.model_info(),
+            "public": os.getenv("ALLOW_KEY_UI", "1") == "0"}
 
 
 class FacilityStatusIn(BaseModel):

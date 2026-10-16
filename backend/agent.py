@@ -5,6 +5,7 @@ The recommendation ALWAYS comes from the evaluate_rules tool output captured ser
 """
 import json
 import os
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutTimeout
@@ -26,6 +27,23 @@ load_dotenv(Path(__file__).parent / ".env")
 AGENT_TIMEOUT_S = float(os.getenv("AGENT_TIMEOUT_S", "75"))
 DATA = Path(__file__).parent / "data"
 _pool = ThreadPoolExecutor(max_workers=4)
+# Public deployments cap uncached model calls so a portfolio link can't run up the API bill. 0 = no cap (local dev).
+LLM_CALLS_PER_HOUR = int(os.getenv("LLM_CALLS_PER_HOUR", "0"))
+_llm_calls: list[float] = []
+_llm_lock = threading.Lock()
+
+
+def llm_budget_ok() -> bool:
+    """Reserve one model call against the hourly cap. False when the cap is reached."""
+    if LLM_CALLS_PER_HOUR <= 0:
+        return True
+    now = time.time()
+    with _llm_lock:
+        _llm_calls[:] = [t for t in _llm_calls if now - t < 3600]
+        if len(_llm_calls) >= LLM_CALLS_PER_HOUR:
+            return False
+        _llm_calls.append(now)
+        return True
 STEPS = ("get_nws_alerts", "get_forecast", "get_river_gauge", "get_power_outages", "get_road_closures",
          "get_facility_status", "get_roster", "evaluate_rules", "draft_notifications")
 
@@ -322,6 +340,9 @@ def assess(facility: dict, at: datetime | None = None, simulate: str | None = No
         if hit and hit.get("actions"):
             briefing, by, cached = hit, f"Strands agent · {hit.get('model')} (cached)", True
             ctx.log("agent_write", ta, "Inputs unchanged, reused the agent's earlier briefing")
+        elif not llm_budget_ok():
+            agent_error = "Hourly AI limit reached on this demo server, template used"
+            ctx.log("agent_write", ta, "Agent unavailable, template text used", ok=False)
         else:
             ctx.agent_phase = True
             fut = _pool.submit(_run_agent, ctx, model)
